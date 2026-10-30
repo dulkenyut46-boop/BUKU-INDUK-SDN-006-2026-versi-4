@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   HandCoins, 
   Search, 
@@ -41,6 +41,12 @@ import { cn, formatIndonesianDate, formatCurrencyIDR } from '../../lib/utils';
 import { KopSuratHeader } from '../layout/KopSuratHeader';
 import { RingkasanStatistikBantuan } from '../analytics/RingkasanStatistikBantuan';
 import { RingkasanAkumulasiBantuan, parseNominalToNumber } from '../analytics/RingkasanAkumulasiBantuan';
+import { 
+  projectStudentsForAcademicYear, 
+  ProjectedStudent,
+  isKelas1Sampai6, 
+  getTingkatKelasNumber 
+} from '../../utils/academicYearHelper';
 
 interface PenerimaBantuanViewProps {
   onEditStudent: (student: Student, initialTab?: 'pribadi' | 'alamat' | 'ortu' | 'kesehatan' | 'masuk' | 'bantuan') => void;
@@ -55,11 +61,20 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
   onBack,
   setActiveTab,
 }) => {
-  const { students, schoolProfile, updateStudent, logActivity } = useSchool();
+  const { students, schoolProfile, updateSchoolProfile, updateStudent, logActivity } = useSchool();
   const activeTP = schoolProfile?.tahunPelajaranAktif || '2026/2027';
 
-  // Filters state
+  // Filters state - tersinkronisasi dengan Tahun Pelajaran Aktif
   const [selectedTP, setSelectedTP] = useState<string>(activeTP);
+
+  // Sinkronkan selectedTP secara otomatis saat tahun pelajaran aktif sekolah berganti
+  useEffect(() => {
+    if (activeTP) {
+      setSelectedTP(activeTP);
+    }
+  }, [activeTP]);
+
+  const currentWorkingTP = selectedTP !== 'ALL' ? selectedTP : activeTP;
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterJenis, setFilterJenis] = useState<string>('ALL');
   const [filterKelas, setFilterKelas] = useState<string>('ALL');
@@ -168,10 +183,25 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
     return records;
   };
 
-  // Active students scope (students currently active in school)
-  const activeStudentsInSchool = useMemo(() => {
-    return students.filter(s => s.status === 'Aktif' || !s.status);
-  }, [students]);
+  // Proyeksi siswa untuk Tahun Pelajaran terpilih di tampilan utama (mengikuti alur naik/turun rombel & alumni)
+  const projectedStudentsInTP = useMemo(() => {
+    return projectStudentsForAcademicYear(students, currentWorkingTP, '2026/2027');
+  }, [students, currentWorkingTP]);
+
+  // Siswa yang berstatus AKTIF pada Tahun Pelajaran terpilih (termasuk alumni yang waktu tahun tersebut masih aktif)
+  const activeStudentsInSelectedTP = useMemo(() => {
+    return projectedStudentsInTP.filter(s => s.status === 'Aktif' && isKelas1Sampai6(s.kelasSekarang));
+  }, [projectedStudentsInTP]);
+
+  // Siswa aktif untuk modal Tambahkan Bantuan (dinamis mengikuti pilihan formTahunPelajaran)
+  const modalActiveStudents = useMemo(() => {
+    const targetTP = formTahunPelajaran || currentWorkingTP;
+    const projected = projectStudentsForAcademicYear(students, targetTP, '2026/2027');
+    return projected.filter(s => s.status === 'Aktif' && isKelas1Sampai6(s.kelasSekarang));
+  }, [students, formTahunPelajaran, currentWorkingTP]);
+
+  // Siswa aktif acuan (kompatibilitas dengan nama variabel sebelumnya)
+  const activeStudentsInSchool = activeStudentsInSelectedTP;
 
   // All assistance recipients filtered strictly by chosen Academic Year (Tahun Pelajaran)
   const recipientsInSelectedTP = useMemo(() => {
@@ -359,15 +389,19 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
 
   // Handler: Buka Menu "Tambahkan Bantuan" & Riwayat
   const handleOpenAddBantuan = (studentId?: string | null) => {
+    const targetTP = currentWorkingTP;
+    const projected = projectStudentsForAcademicYear(students, targetTP, '2026/2027');
+    const activeInTP = projected.filter(s => s.status === 'Aktif' && isKelas1Sampai6(s.kelasSekarang));
+
     if (studentId) {
       setSelectedStudentForBantuanId(studentId);
-    } else if (!selectedStudentForBantuanId && activeStudentsInSchool.length > 0) {
-      setSelectedStudentForBantuanId(activeStudentsInSchool[0].id);
+    } else if (activeInTP.length > 0) {
+      setSelectedStudentForBantuanId(activeInTP[0].id);
     }
     setStudentSearchInModal('');
     setFormJenis('Penerima PIP');
     setFormBantuanLainnya('');
-    setFormTahunPelajaran(activeTP);
+    setFormTahunPelajaran(targetTP);
     setFormTahap('Tahap 1');
     setFormTanggalMenerima(new Date().toISOString().split('T')[0]);
     setFormNominal('Rp 450.000 / tahun');
@@ -391,7 +425,7 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
       id: `btn-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       jenis: formJenis,
       bantuanLainnya: formJenis === 'Bantuan Lainnya' ? formBantuanLainnya : undefined,
-      tahunPelajaran: formTahunPelajaran || activeTP,
+      tahunPelajaran: formTahunPelajaran || currentWorkingTP,
       tahap: formTahap || 'Tahap 1',
       tanggalMenerima: formTanggalMenerima,
       nominal: formNominal || 'Rp 450.000 / tahun',
@@ -409,7 +443,7 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
       penerimaBantuan: uniqueTypes.join(', '),
       jenisBantuanList: uniqueTypes,
       bantuanLainnya: formJenis === 'Bantuan Lainnya' ? formBantuanLainnya : targetStudent.bantuanLainnya,
-      tahunBantuan: formTahunPelajaran || activeTP,
+      tahunBantuan: formTahunPelajaran || currentWorkingTP,
       tahapBantuan: formTahap,
       tanggalMenerimaBantuan: formTanggalMenerima,
       nominalBantuan: formNominal,
@@ -631,6 +665,22 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
               </option>
             </select>
           </div>
+
+          {/* Tombol Jadikan Tahun Aktif Sekolah jika dipilih tahun berbeda */}
+          {selectedTP !== 'ALL' && selectedTP !== activeTP && (
+            <button
+              type="button"
+              onClick={() => {
+                updateSchoolProfile({ tahunPelajaranAktif: selectedTP });
+                logActivity('PENGATURAN', `Mengganti Tahun Pelajaran Aktif Sekolah ke TP ${selectedTP} dari menu Penerima Bantuan.`);
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black rounded-xl transition-all shadow-xs cursor-pointer"
+              title={`Tetapkan TP ${selectedTP} sebagai Tahun Pelajaran Aktif Sekolah`}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Jadikan TP Aktif</span>
+            </button>
+          )}
 
           {/* Tombol Cetak Rekap */}
           <button
@@ -1003,7 +1053,15 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                         <div className="text-[10.5px] text-slate-400">NISN: {s.nisn}</div>
                       </td>
                       <td className="py-3 px-3.5 font-bold text-blue-700 dark:text-blue-400">
-                        {s.kelasSekarang}
+                        {(() => {
+                          if (selectedTP !== 'ALL') {
+                            const projected = projectedStudentsInTP.find(p => p.id === s.id);
+                            if (projected && projected.status === 'Aktif') {
+                              return projected.kelasSekarang;
+                            }
+                          }
+                          return s.kelasSekarang;
+                        })()}
                       </td>
                       <td className="py-3 px-3.5">
                         <div className="flex flex-wrap items-center gap-1">
@@ -1132,11 +1190,11 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                   <h3 className="text-sm font-black uppercase tracking-wider flex items-center gap-2">
                     <span>Tambahkan Bantuan & Riwayat Bantuan Siswa</span>
                     <span className="px-2 py-0.2 bg-amber-400 text-slate-950 font-black text-[10px] rounded-full">
-                      TP {activeTP}
+                      TP {formTahunPelajaran || currentWorkingTP}
                     </span>
                   </h3>
                   <p className="text-[11px] text-blue-100 font-medium">
-                    Kelola riwayat penerimaan beberapa bantuan siswa pada Tahun Pelajaran aktif
+                    Kelola riwayat penerimaan bantuan siswa aktif pada Tahun Pelajaran terpilih (termasuk siswa alumni yang pada tahun tersebut masih berstatus aktif)
                   </p>
                 </div>
               </div>
@@ -1170,8 +1228,14 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
 
               {/* 1. Pemilihan Siswa Aktif */}
               {(() => {
-                const targetStudent = students.find(s => s.id === selectedStudentForBantuanId);
-                const activeRecords = targetStudent ? getStudentBantuanRecords(targetStudent, activeTP) : [];
+                const modalTargetTP = formTahunPelajaran || currentWorkingTP;
+                const targetStudent = modalActiveStudents.find(s => s.id === selectedStudentForBantuanId) ||
+                  projectedStudentsInTP.find(s => s.id === selectedStudentForBantuanId) ||
+                  students.find(s => s.id === selectedStudentForBantuanId);
+                const activeRecords = targetStudent ? getStudentBantuanRecords(targetStudent, modalTargetTP) : [];
+                const rawStudent = targetStudent ? students.find(s => s.id === targetStudent.id) : null;
+                const isAlumniInBase = rawStudent && (rawStudent.status === 'Lulus' || rawStudent.sttb?.lulusTahun);
+                const alumniYear = rawStudent?.sttb?.lulusTahun || (rawStudent?.kelasSekarang?.match(/\b(20\d{2})\b/)?.[1] || '2026');
 
                 return (
                   <>
@@ -1179,7 +1243,7 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <label className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
                           <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                          <span>Pilih Siswa Aktif Penerima Bantuan</span>
+                          <span>Pilih Siswa Aktif Penerima Bantuan (TP {modalTargetTP})</span>
                           <span className="text-rose-500">*</span>
                         </label>
                         <div className="relative w-full sm:w-64">
@@ -1199,7 +1263,7 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                         onChange={(e) => setSelectedStudentForBantuanId(e.target.value)}
                         className="w-full px-3 py-2 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 cursor-pointer focus:ring-2 focus:ring-blue-500"
                       >
-                        {activeStudentsInSchool
+                        {modalActiveStudents
                           .filter(s => {
                             if (!studentSearchInModal.trim()) return true;
                             const q = studentSearchInModal.toLowerCase();
@@ -1207,14 +1271,27 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                           })
                           .sort((a, b) => a.namaLengkap.localeCompare(b.namaLengkap))
                           .map(s => {
-                            const recCount = getStudentBantuanRecords(s, activeTP).length;
+                            const recCount = getStudentBantuanRecords(s, modalTargetTP).length;
+                            const orig = students.find(o => o.id === s.id);
+                            const isOrigAlumni = orig && (orig.status === 'Lulus' || orig.sttb?.lulusTahun);
+                            const origAlumniYear = orig?.sttb?.lulusTahun || (orig?.kelasSekarang?.match(/\b(20\d{2})\b/)?.[1] || '2026');
+
                             return (
                               <option key={s.id} value={s.id}>
-                                {s.namaLengkap} — {s.kelasSekarang} (NIS: {s.noInduk}) {recCount > 0 ? `[${recCount} Bantuan di TP ${activeTP}]` : ''}
+                                {s.namaLengkap} — {s.kelasSekarang} (NIS: {s.noInduk}) {isOrigAlumni ? `[Alumni ${origAlumniYear}]` : ''} {recCount > 0 ? `[${recCount} Bantuan di TP ${modalTargetTP}]` : ''}
                               </option>
                             );
                           })}
                       </select>
+
+                      <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+                        <span>
+                          Menampilkan <strong>{modalActiveStudents.length} siswa aktif</strong> pada Tahun Pelajaran <strong>{modalTargetTP}</strong>
+                        </span>
+                        <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
+                          ✓ Otomatis menyertakan siswa alumni yang pada TP {modalTargetTP} masih berstatus aktif
+                        </span>
+                      </div>
 
                       {/* Info Siswa Terpilih Card */}
                       {targetStudent && (
@@ -1228,7 +1305,7 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                               )}
                             </div>
                             <div>
-                              <div className="font-black text-slate-900 dark:text-slate-100 text-sm flex items-center gap-2">
+                              <div className="font-black text-slate-900 dark:text-slate-100 text-sm flex flex-wrap items-center gap-2">
                                 <span>{targetStudent.namaLengkap}</span>
                                 <span className={cn(
                                   "text-[10px] font-extrabold px-1.5 py-0.2 rounded",
@@ -1237,15 +1314,20 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                                   {targetStudent.jenisKelamin}
                                 </span>
                                 <span className="text-[10px] font-extrabold px-2 py-0.2 rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-                                  {targetStudent.kelasSekarang}
+                                  {targetStudent.kelasSekarang} (TP {modalTargetTP})
                                 </span>
+                                {isAlumniInBase && (
+                                  <span className="text-[10px] font-extrabold px-2 py-0.2 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                                    Alumni Tahun {alumniYear} (Aktif di {targetStudent.kelasSekarang} pada TP {modalTargetTP})
+                                  </span>
+                                )}
                               </div>
                               <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono flex items-center gap-2 mt-0.5">
                                 <span>NIS: {targetStudent.noInduk}</span>
                                 <span>•</span>
                                 <span>NISN: {targetStudent.nisn || '-'}</span>
                                 <span>•</span>
-                                <span>Status: {targetStudent.status || 'Aktif'}</span>
+                                <span>Status TP {modalTargetTP}: <strong className="text-emerald-600">Aktif</strong></span>
                               </div>
                             </div>
                           </div>
@@ -1258,7 +1340,7 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                                 : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
                             )}>
                               <History className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                              <span>{activeRecords.length} Bantuan di TP {activeTP}</span>
+                              <span>{activeRecords.length} Bantuan di TP {modalTargetTP}</span>
                             </span>
                           </div>
                         </div>
@@ -1270,13 +1352,13 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                         <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
                           <History className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                          <span>Riwayat Beberapa Bantuan Siswa di TP {activeTP}</span>
+                          <span>Riwayat Beberapa Bantuan Siswa di TP {modalTargetTP}</span>
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
                             {activeRecords.length} Catatan
                           </span>
                         </h4>
                         <span className="text-[11px] text-slate-400 font-medium">
-                          Memuat riwayat bantuan yang diterima siswa di tahun ajaran aktif
+                          Memuat riwayat bantuan yang diterima siswa di tahun ajaran {modalTargetTP}
                         </span>
                       </div>
 
@@ -1284,10 +1366,10 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                         <div className="p-5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 text-center text-slate-500">
                           <Clock className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-1.5" />
                           <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                            Belum ada riwayat bantuan untuk {targetStudent?.namaLengkap || 'siswa terpilih'} pada TP {activeTP}.
+                            Belum ada riwayat bantuan untuk {targetStudent?.namaLengkap || 'siswa terpilih'} pada TP {modalTargetTP}.
                           </p>
                           <p className="text-[11px] text-slate-400 mt-0.5">
-                            Gunakan formulir di bawah ini untuk menambahkan bantuan ke riwayat siswa.
+                            Gunakan formulir di bawah ini untuk menambahkan bantuan ke riwayat siswa di TP {modalTargetTP}.
                           </p>
                         </div>
                       ) : (
@@ -1438,11 +1520,19 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                     </label>
                     <select
                       value={formTahunPelajaran}
-                      onChange={(e) => setFormTahunPelajaran(e.target.value)}
+                      onChange={(e) => {
+                        const newTP = e.target.value;
+                        setFormTahunPelajaran(newTP);
+                        const newProjected = projectStudentsForAcademicYear(students, newTP, '2026/2027');
+                        const newActive = newProjected.filter(s => s.status === 'Aktif' && isKelas1Sampai6(s.kelasSekarang));
+                        if (newActive.length > 0 && !newActive.some(s => s.id === selectedStudentForBantuanId)) {
+                          setSelectedStudentForBantuanId(newActive[0].id);
+                        }
+                      }}
                       className="w-full px-3 py-2 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 cursor-pointer"
                     >
                       {(schoolProfile?.daftarTahunPelajaran || ['2023/2024', '2024/2025', '2025/2026', '2026/2027', '2027/2028']).map(tp => (
-                        <option key={tp} value={tp}>TP {tp} {tp === activeTP ? '(Aktif)' : ''}</option>
+                        <option key={tp} value={tp}>TP {tp} {tp === activeTP ? '(Aktif Sekolah)' : ''}</option>
                       ))}
                     </select>
                   </div>

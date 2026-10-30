@@ -139,6 +139,79 @@ export function projectStudentForAcademicYear(
   }
 
   const admittedGrade = getTingkatKelasNumber(student.diterimaDiKelas || 'Kelas 1');
+
+  // Deteksi apakah siswa merupakan Alumni / Lulus dan cari tahun kelulusannya
+  let alumniLulusYear: number | null = null;
+  if (student.sttb?.lulusTahun && /^\d{4}$/.test(student.sttb.lulusTahun.trim())) {
+    alumniLulusYear = parseInt(student.sttb.lulusTahun.trim(), 10);
+  } else if (student.sttb?.tanggalKelulusan) {
+    const m = student.sttb.tanggalKelulusan.match(/\b(20\d{2})\b/);
+    if (m) alumniLulusYear = parseInt(m[1], 10);
+  } else if (student.kelasSekarang && (student.status === 'Lulus' || student.kelasSekarang.toLowerCase().includes('alumni') || student.kelasSekarang.toLowerCase().includes('lulus'))) {
+    const m = student.kelasSekarang.match(/\b(20\d{2})\b/);
+    if (m) alumniLulusYear = parseInt(m[1], 10);
+  } else if ((student as any).tahunLulus) {
+    const m = String((student as any).tahunLulus).match(/\b(20\d{2})\b/);
+    if (m) alumniLulusYear = parseInt(m[1], 10);
+  } else if (student.status === 'Lulus') {
+    alumniLulusYear = admissionYear + (6 - admittedGrade) + 1;
+  }
+
+  // JIKA SISWA MERUPAKAN ALUMNI / LULUS:
+  // Lulus pada tahun alumniLulusYear (misal 2026).
+  // Tahun Pelajaran kelulusannya adalah TP (alumniLulusYear - 1)/alumniLulusYear (misal 2025/2026), di mana siswa berada di Kelas 6.
+  // - Jika targetYear >= alumniLulusYear: Siswa sudah Lulus / Alumni
+  // - Jika targetYear < alumniLulusYear: Siswa saat itu masih aktif di SD!
+  //   Tingkat kelasnya dihitung mundur: 6 - ((alumniLulusYear - 1) - targetYear) = targetYear - alumniLulusYear + 7
+  if (alumniLulusYear !== null) {
+    if (targetYear >= alumniLulusYear) {
+      const alumniLabel = `Alumni (Tahun ${student.sttb?.lulusTahun || alumniLulusYear})`;
+      return {
+        ...student,
+        kelasSekarang: alumniLabel,
+        status: 'Lulus',
+        projectedRombel: alumniLabel,
+        projectedStatus: 'Lulus',
+        projectedTingkat: 7,
+        isBelumMasukSD: false,
+        baseRombel: student.kelasSekarang,
+        baseStatus: student.status,
+        diffYears,
+      };
+    } else {
+      // targetYear < alumniLulusYear: Waktu itu siswa masih aktif belajar!
+      const gradeInTargetYear = targetYear - alumniLulusYear + 7;
+      if (gradeInTargetYear <= 0 || targetYear < admissionYear) {
+        return {
+          ...student,
+          kelasSekarang: 'Belum Masuk SD',
+          status: 'Belum Masuk SD',
+          projectedRombel: 'Belum Masuk SD',
+          projectedStatus: 'Belum Masuk SD',
+          projectedTingkat: 0,
+          isBelumMasukSD: true,
+          baseRombel: student.kelasSekarang,
+          baseStatus: student.status,
+          diffYears,
+        };
+      } else {
+        const rombelName = `Kelas ${gradeInTargetYear}`;
+        return {
+          ...student,
+          kelasSekarang: rombelName,
+          status: 'Aktif',
+          projectedRombel: rombelName,
+          projectedStatus: 'Aktif',
+          projectedTingkat: gradeInTargetYear,
+          isBelumMasukSD: false,
+          baseRombel: student.kelasSekarang,
+          baseStatus: student.status,
+          diffYears,
+        };
+      }
+    }
+  }
+
   const baseGrade = getTingkatKelasNumber(student.kelasSekarang || 'Kelas 1');
   const projectedGrade = baseGrade + diffYears;
 
