@@ -35,6 +35,7 @@ import { useSchool } from '../../context/SchoolContext';
 import { cn } from '../../lib/utils';
 import { TutWuriHandayaniSDLogo } from '../../utils/logoHelper';
 import { EditLogoModal } from '../modals/EditLogoModal';
+import { isStudentMutasiMasuk } from '../../utils/academicYearHelper';
 
 export type ActiveTab = 
   | 'dashboard'
@@ -104,6 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const activeCount = students.filter(s => s.status === 'Aktif').length;
   const teacherCount = adminUsers.length;
   const mutatedCount = students.filter(s => s.mutasi || s.status === 'Mutasi Keluar').length;
+  const incomingMutatedCount = students.filter(isStudentMutasiMasuk).length;
 
   const activeTP = schoolProfile?.tahunPelajaranAktif || '2026/2027';
   const bantuanCount = students.filter(s => {
@@ -164,7 +166,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'mutasi',
       label: 'Buku Mutasi Siswa',
       icon: UserMinus,
-      badge: mutatedCount,
+      badge: (mutatedCount + incomingMutatedCount) > 0 ? (mutatedCount + incomingMutatedCount) : undefined,
       badgeColor: 'bg-orange-100 text-orange-800 dark:bg-orange-900/60 dark:text-orange-200',
       roles: ['admin', 'user', 'umum'],
       category: 'MENU UTAMA',

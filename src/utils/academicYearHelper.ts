@@ -248,3 +248,48 @@ export function projectStudentsForAcademicYear(
 ): ProjectedStudent[] {
   return students.map(s => projectStudentForAcademicYear(s, targetTP, baseSchoolTP));
 }
+
+/**
+ * Helper: Mengenali apakah siswa adalah siswa mutasi masuk / pindahan
+ * berdasarkan data profil siswa (diterima di tingkat kelas 2 s/d 6, sekolah asal SD/MI, atau SKP)
+ */
+export const isStudentMutasiMasuk = (s: Student): boolean => {
+  if (!s) return false;
+  
+  // 1. Cek diterimaDiKelas: jika diterima di tingkat kelas 2, 3, 4, 5, 6 (bukan kelas 1)
+  const rawClass = (s.diterimaDiKelas || '').trim().toLowerCase();
+  
+  // Kecualikan kelas 1 (dan legacy typo '7')
+  const isKelas1 = !rawClass || 
+    rawClass === '1' || 
+    rawClass === 'kelas 1' || 
+    rawClass === 'kelas 1a' || 
+    rawClass === 'kelas 1b' ||
+    rawClass === '7' || 
+    rawClass === '7a' ||
+    rawClass === 'kelas 7';
+
+  const isDiterimaTingkatLanjutan = !isKelas1 && (
+    /\b[2-6]\b/.test(rawClass) ||
+    /kelas\s*[2-6]/i.test(rawClass) ||
+    /\b(?:ii|iii|iv|v|vi)\b/i.test(rawClass)
+  );
+
+  // 2. Cek sekolah asal: SD / MI / Sekolah Dasar / Madrasah / ada kata 'pindahan'
+  const isSekolahAsalSD = Boolean(s.sekolahAsalTK && (
+    s.sekolahAsalTK.toLowerCase().includes('sd') ||
+    s.sekolahAsalTK.toLowerCase().includes('mi') ||
+    s.sekolahAsalTK.toLowerCase().includes('sekolah dasar') ||
+    s.sekolahAsalTK.toLowerCase().includes('madrasah') ||
+    s.sekolahAsalTK.toLowerCase().includes('pindahan')
+  ));
+
+  // 3. Cek nomor surat keterangan pindah (SKP)
+  const hasTransferSurat = Boolean(s.noIjazahTK && (
+    s.noIjazahTK.toLowerCase().includes('skp') || 
+    s.noIjazahTK.toLowerCase().includes('pindah') ||
+    s.noIjazahTK.toLowerCase().includes('mutasi')
+  ));
+
+  return isDiterimaTingkatLanjutan || isSekolahAsalSD || hasTransferSurat;
+};

@@ -398,6 +398,8 @@ const MainAppContent: React.FC = () => {
               <MutasiView
                 onOpenMutationModal={handleOpenMutation}
                 onSelectStudentDetail={handleSelectStudentDetail}
+                onEditStudent={handleOpenEditModal}
+                onOpenAddModal={handleOpenAddModal}
                 onBack={() => setActiveTab('reports')}
                 setActiveTab={setActiveTab}
               />

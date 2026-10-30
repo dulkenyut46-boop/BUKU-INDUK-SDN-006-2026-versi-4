@@ -2796,4 +2796,91 @@ export async function parseMutasiExcelFile(
   };
 }
 
+/**
+ * Ekspor seluruh data siswa mutasi masuk (pindahan) ke berkas spreadsheet Excel
+ */
+export const exportMutasiMasukToExcel = (
+  students: Student[] = [],
+  schoolProfile?: Partial<SchoolProfile>
+) => {
+  try {
+    const wb = XLSX.utils.book_new();
+    const namaSekolah = schoolProfile?.namaSekolah || 'SD NEGERI 006 SUNGAI BULUH';
+
+    const headers = [
+      'No',
+      'NIS (Nomor Induk)',
+      'NISN',
+      'Nama Lengkap Peserta Didik',
+      'Jenis Kelamin (L/P)',
+      'Tempat Lahir',
+      'Tanggal Lahir',
+      'Diterima di Tingkat Kelas',
+      'Kelas Sekarang (Rombel Aktif)',
+      'Tanggal Diterima Masuk',
+      'Tahun Masuk / Pelajaran',
+      'Sekolah / Madrasah Asal Pindahan',
+      'Nomor Surat Pindah / SKP',
+      'Nama Ayah / Wali',
+      'Nomor HP Kontak',
+      'Alamat Siswa',
+      'Status Siswa',
+    ];
+
+    const rows: any[][] = [headers];
+
+    students.forEach((s, idx) => {
+      rows.push([
+        idx + 1,
+        s.noInduk || '',
+        s.nisn || '',
+        s.namaLengkap || '',
+        s.jenisKelamin === 'P' ? 'P' : 'L',
+        s.tempatLahir || '',
+        s.tanggalLahir || '',
+        s.diterimaDiKelas || 'Kelas 1',
+        s.kelasSekarang || '',
+        s.tanggalDiterima || '',
+        s.tahunMasuk || '',
+        s.sekolahAsalTK || '',
+        s.noIjazahTK || '',
+        s.ayah?.nama || s.wali?.nama || s.ibu?.nama || '',
+        s.ayah?.noHp || s.ibu?.noHp || s.noHpSiswa || '',
+        s.alamat || '',
+        s.status || 'Aktif',
+      ]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [
+      { wch: 6 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 32 },
+      { wch: 20 },
+      { wch: 20 },
+      { wch: 16 },
+      { wch: 24 },
+      { wch: 26 },
+      { wch: 22 },
+      { wch: 22 },
+      { wch: 36 },
+      { wch: 30 },
+      { wch: 28 },
+      { wch: 18 },
+      { wch: 38 },
+      { wch: 16 },
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'MUTASI_MASUK');
+
+    const cleanName = namaSekolah.replace(/[^a-zA-Z0-9]/g, '_');
+    const today = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `REGISTER_MUTASI_MASUK_${cleanName}_${today}.xlsx`);
+  } catch (err) {
+    console.error('Gagal mengekspor data mutasi masuk ke Excel:', err);
+    alert('Terjadi kesalahan saat mengekspor data siswa mutasi masuk ke Excel.');
+  }
+};
+
 

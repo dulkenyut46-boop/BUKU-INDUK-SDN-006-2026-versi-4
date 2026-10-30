@@ -59,7 +59,8 @@ import {
   projectStudentsForAcademicYear, 
   ProjectedStudent,
   isKelas1Sampai6,
-  getTingkatKelasNumber 
+  getTingkatKelasNumber,
+  isStudentMutasiMasuk 
 } from '../../utils/academicYearHelper';
 import { ActiveTab } from '../layout/Sidebar';
 
@@ -669,27 +670,7 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
   // Filter mutasi khusus Tahun Ajar Aktif (sesuai instruksi: "tampilkan mutasi data siswa mutasi masuk dan mutasi keluar pada tahun Ajar Aktif. selain tahun itu di sembunyikan")
   const [filterMutasiOnlyActiveYear, setFilterMutasiOnlyActiveYear] = useState<boolean>(true);
 
-  // Helper untuk mengenali apakah siswa masuk lewat mutasi masuk / pindahan
-  const isStudentMutasiMasuk = (s: Student): boolean => {
-    const rawClass = (s.diterimaDiKelas || '').trim();
-    // Jika isian sebelumnya '7', '7A', 'Kelas 7', anggap sebagai 'Kelas 1' (bukan mutasi masuk)
-    const isKelas1 = !rawClass || rawClass === '7' || rawClass === '7A' || rawClass === '7B' || rawClass.toLowerCase().includes('kelas 1') || rawClass.toLowerCase().startsWith('1');
-    const isNotClass1 = !isKelas1;
-    const isSekolahAsalSD = Boolean(s.sekolahAsalTK && (
-      s.sekolahAsalTK.toLowerCase().includes('sd') ||
-      s.sekolahAsalTK.toLowerCase().includes('mi') ||
-      s.sekolahAsalTK.toLowerCase().includes('sekolah dasar') ||
-      s.sekolahAsalTK.toLowerCase().includes('pindahan')
-    ));
-    const hasTransferSurat = Boolean(s.noIjazahTK && (
-      s.noIjazahTK.toLowerCase().includes('skp') || 
-      s.noIjazahTK.toLowerCase().includes('pindah') ||
-      s.noIjazahTK.toLowerCase().includes('mutasi')
-    ));
-    return isNotClass1 || isSekolahAsalSD || hasTransferSurat;
-  };
-
-  // Semua riwayat mutasi masuk (seluruh tahun)
+  // Semua riwayat mutasi masuk (seluruh tahun) - menggunakan helper resmi isStudentMutasiMasuk
   const allMutasiMasukStudents = useMemo(() => {
     return activeStudents.filter(isStudentMutasiMasuk);
   }, [activeStudents]);
