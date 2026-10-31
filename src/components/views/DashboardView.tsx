@@ -25,7 +25,8 @@ import {
   Download,
   ShieldAlert,
   UserCog,
-  BarChart3
+  BarChart3,
+  FileCheck
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -222,6 +223,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={() => setActiveTab('teachers')}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-400/40 text-xs font-bold rounded-xl backdrop-blur-xs transition-all shadow-xs"
+              title="Buka Data Guru & Tenaga Kependidikan"
+            >
+              <GraduationCap className="w-4 h-4 text-amber-300" />
+              <span>Data Guru & Tendik ({adminUsers.length})</span>
+            </button>
             <button
               onClick={() => setActiveTab('school-profile')}
               className="flex items-center gap-1.5 px-3.5 py-2.5 bg-blue-600/60 hover:bg-blue-600 text-white border border-blue-400/40 text-xs font-bold rounded-xl backdrop-blur-xs transition-all shadow-xs"
@@ -692,10 +701,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </button>
 
             <button
+              onClick={() => setActiveTab('teachers')}
+              className="p-3 rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/60 dark:bg-amber-950/20 hover:bg-amber-100 text-left transition-colors group"
+            >
+              <GraduationCap className="w-5 h-5 text-amber-600 dark:text-amber-400 mb-1 group-hover:scale-110 transition-transform" />
+              <div className="font-bold text-xs text-slate-900 dark:text-slate-100">Guru & Tendik</div>
+              <div className="text-[10px] text-slate-500">{adminUsers.length} GTK terdaftar</div>
+            </button>
+
+            <button
               onClick={() => setActiveTab('sttb')}
               className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 text-left transition-colors group"
             >
-              <GraduationCap className="w-5 h-5 text-slate-700 dark:text-slate-300 mb-1 group-hover:scale-110 transition-transform" />
+              <FileCheck className="w-5 h-5 text-slate-700 dark:text-slate-300 mb-1 group-hover:scale-110 transition-transform" />
               <div className="font-bold text-xs text-slate-900 dark:text-slate-100">STTB & Ijazah</div>
               <div className="text-[10px] text-slate-500">Tanda terima ijazah</div>
             </button>

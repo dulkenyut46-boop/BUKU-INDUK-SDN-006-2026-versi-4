@@ -330,11 +330,22 @@ export interface ActivityLog {
 
 export type TeacherDutyCategory = 'kepala_sekolah' | 'wali_kelas' | 'guru_mapel' | 'tenaga_kependidikan';
 
-export type TeacherActiveStatus = 'Aktif' | 'Pensiun' | 'Cuti' | 'Mutasi Keluar' | 'Nonaktif';
+export type TeacherActiveStatus = 
+  | 'Aktif' 
+  | 'Mutasi Masuk' 
+  | 'Mutasi Keluar' 
+  | 'Pensiun' 
+  | 'Cuti' 
+  | 'Mengundurkan Diri' 
+  | 'Meninggal' 
+  | 'Nonaktif' 
+  | string;
 
 export interface AdminUser {
   id: string;
   nama: string;
+  gelarDepan?: string;
+  gelarBelakang?: string;
   username?: string;
   password?: string;
   nip?: string;
@@ -363,8 +374,28 @@ export interface AdminUser {
   tingkatKelas?: string;
   mataPelajaran?: string;
   tugasTendik?: string;
-  status: TeacherActiveStatus | 'Aktif' | 'Nonaktif' | string;
-  // Data Riwayat Keaktifan Guru
+  tugasTambahan?: string;
+  status: TeacherActiveStatus;
+  
+  // Riwayat Mutasi Masuk
+  isMutasiMasuk?: boolean;
+  sekolahAsalMutasi?: string;
+  tglMasukSekolah?: string;
+  noSkMasuk?: string;
+  tglSkMasuk?: string;
+  pejabatSkMasuk?: string;
+  alasanMutasiMasuk?: string;
+
+  // Riwayat Mutasi Keluar & Keluar Karena Apa
+  alasanKeluar?: string; // Alasan keluar: Pindah Tugas, Pensiun BUP, Pensiun Dini, Resign, Meninggal, dll.
+  sekolahTujuanMutasi?: string;
+  tglKeluar?: string;
+  noSkMutasi?: string;
+  tglSkMutasi?: string;
+  pejabatSkMutasi?: string;
+  keteranganKeluar?: string;
+
+  // Data Riwayat Keaktifan Guru / Cuti / Pensiun
   tanggalPensiun?: string;
   noSkPensiun?: string;
   pejabatSkPensiun?: string;
@@ -372,9 +403,6 @@ export interface AdminUser {
   tglMulaiCuti?: string;
   tglSelesaiCuti?: string;
   noIzinCuti?: string;
-  sekolahTujuanMutasi?: string;
-  tglSkMutasi?: string;
-  noSkMutasi?: string;
   keteranganKeaktifan?: string;
   terakhirLogin: string;
   avatarColor: string;

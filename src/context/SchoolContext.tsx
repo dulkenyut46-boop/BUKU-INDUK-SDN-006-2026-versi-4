@@ -108,6 +108,8 @@ export const initialAdminUsers: AdminUser[] = [
     kategoriTugas: 'kepala_sekolah',
     jabatan: 'Kepala Sekolah (Penanggung Jawab Utama)',
     status: 'Aktif',
+    statusKepegawaian: 'PNS (Pegawai Negeri Sipil)',
+    pangkatGolongan: 'Pembina Tingkat I (IV/b)',
     terakhirLogin: 'Hari ini, 08:30 WIB',
     avatarColor: 'bg-amber-600',
   },
@@ -121,6 +123,8 @@ export const initialAdminUsers: AdminUser[] = [
     tingkatKelas: 'Kelas 1',
     jabatan: 'Wali Kelas 1 & Koordinator Kurikulum',
     status: 'Aktif',
+    statusKepegawaian: 'PNS (Pegawai Negeri Sipil)',
+    pangkatGolongan: 'Penata (III/c)',
     terakhirLogin: 'Hari ini, 07:45 WIB',
     avatarColor: 'bg-rose-600',
   },
@@ -134,6 +138,8 @@ export const initialAdminUsers: AdminUser[] = [
     tingkatKelas: 'Kelas 2',
     jabatan: 'Wali Kelas 2',
     status: 'Aktif',
+    statusKepegawaian: 'PNS (Pegawai Negeri Sipil)',
+    pangkatGolongan: 'Penata (III/c)',
     terakhirLogin: 'Kemarin, 13:20 WIB',
     avatarColor: 'bg-emerald-600',
   },
@@ -147,6 +153,8 @@ export const initialAdminUsers: AdminUser[] = [
     tingkatKelas: 'Kelas 3',
     jabatan: 'Wali Kelas 3',
     status: 'Aktif',
+    statusKepegawaian: 'PNS (Pegawai Negeri Sipil)',
+    pangkatGolongan: 'Penata Tingkat I (III/d)',
     terakhirLogin: '18 Agu 2026',
     avatarColor: 'bg-sky-600',
   },
@@ -160,6 +168,8 @@ export const initialAdminUsers: AdminUser[] = [
     tingkatKelas: 'Kelas 4',
     jabatan: 'Wali Kelas 4',
     status: 'Aktif',
+    statusKepegawaian: 'PNS (Pegawai Negeri Sipil)',
+    pangkatGolongan: 'Penata Muda Tingkat I (III/b)',
     terakhirLogin: '19 Agu 2026',
     avatarColor: 'bg-indigo-600',
   },
@@ -171,8 +181,10 @@ export const initialAdminUsers: AdminUser[] = [
     role: 'user',
     kategoriTugas: 'wali_kelas',
     tingkatKelas: 'Kelas 5',
-    jabatan: 'Wali Kelas 5 & Guru PJOK',
+    jabatan: 'Wali Kelas 5 & Pembina Pramuka',
     status: 'Aktif',
+    statusKepegawaian: 'PNS (Pegawai Negeri Sipil)',
+    pangkatGolongan: 'Penata (III/c)',
     terakhirLogin: '18 Agu 2026',
     avatarColor: 'bg-purple-600',
   },
@@ -186,6 +198,8 @@ export const initialAdminUsers: AdminUser[] = [
     tingkatKelas: 'Kelas 6',
     jabatan: 'Wali Kelas 6 (Koordinator Ujian)',
     status: 'Aktif',
+    statusKepegawaian: 'PNS (Pegawai Negeri Sipil)',
+    pangkatGolongan: 'Pembina (IV/a)',
     terakhirLogin: 'Kemarin, 14:45 WIB',
     avatarColor: 'bg-teal-600',
   },
@@ -199,6 +213,8 @@ export const initialAdminUsers: AdminUser[] = [
     mataPelajaran: 'Pendidikan Agama Islam & Budi Pekerti',
     jabatan: 'Guru Mapel Pendidikan Agama Islam',
     status: 'Aktif',
+    statusKepegawaian: 'PPPK (Pegawai Pemerintah dg Perjanjian Kerja)',
+    pangkatGolongan: 'Penata Muda (III/a)',
     terakhirLogin: '17 Agu 2026',
     avatarColor: 'bg-green-600',
   },
@@ -209,9 +225,11 @@ export const initialAdminUsers: AdminUser[] = [
     email: 'dedi.kurniawan@sdn006.sch.id',
     role: 'user',
     kategoriTugas: 'guru_mapel',
-    mataPelajaran: 'Pendidikan Jasmani, Olahraga, dan Kesehatan',
+    mataPelajaran: 'Pendidikan Jasmani, Olahraga, dan Kesehatan (PJOK)',
     jabatan: 'Guru Mapel PJOK',
     status: 'Aktif',
+    statusKepegawaian: 'PPPK (Pegawai Pemerintah dg Perjanjian Kerja)',
+    pangkatGolongan: 'Penata Muda (III/a)',
     terakhirLogin: '16 Agu 2026',
     avatarColor: 'bg-orange-600',
   },
@@ -225,8 +243,126 @@ export const initialAdminUsers: AdminUser[] = [
     tugasTendik: 'Operator Dapodik & SIM Sekolah',
     jabatan: 'Tenaga Kependidikan - Operator Dapodik & TU',
     status: 'Aktif',
+    statusKepegawaian: 'PPPK (Pegawai Pemerintah dg Perjanjian Kerja)',
+    pangkatGolongan: 'Penata Muda (III/a)',
     terakhirLogin: 'Hari ini, 09:15 WIB',
     avatarColor: 'bg-blue-600',
+  },
+  {
+    id: 'usr-011',
+    nama: 'Sri Wahyuni, A.Md.',
+    nip: '-',
+    email: 'sri.wahyuni@sdn006.sch.id',
+    role: 'admin',
+    kategoriTugas: 'tenaga_kependidikan',
+    tugasTendik: 'Bendahara BOS & Keuangan Sekolah',
+    jabatan: 'Tenaga Kependidikan - Bendahara BOS & Keuangan',
+    status: 'Aktif',
+    statusKepegawaian: 'Tenaga Honorer / Staf Teknis',
+    pangkatGolongan: '- (Non-PNS / Non-Golongan)',
+    terakhirLogin: 'Hari ini, 08:10 WIB',
+    avatarColor: 'bg-emerald-600',
+  },
+  {
+    id: 'usr-012',
+    nama: 'Hendra Saputra',
+    nip: '-',
+    email: 'hendra.satpam@sdn006.sch.id',
+    role: 'user',
+    kategoriTugas: 'tenaga_kependidikan',
+    tugasTendik: 'Petugas Keamanan / Penjaga Sekolah',
+    jabatan: 'Tenaga Kependidikan - Penjaga Sekolah & Satpam',
+    status: 'Aktif',
+    statusKepegawaian: 'Tenaga Honorer / Staf Teknis',
+    pangkatGolongan: '- (Non-PNS / Non-Golongan)',
+    terakhirLogin: '19 Agu 2026',
+    avatarColor: 'bg-slate-700',
+  },
+  {
+    id: 'usr-013',
+    nama: 'Siti Maimunah, S.Ptk.',
+    nip: '-',
+    email: 'perpustakaan@sdn006.sch.id',
+    role: 'user',
+    kategoriTugas: 'tenaga_kependidikan',
+    tugasTendik: 'Pengelola Perpustakaan Sekolah',
+    jabatan: 'Tenaga Kependidikan - Pengelola Perpustakaan',
+    status: 'Aktif',
+    statusKepegawaian: 'Guru Honorer Sekolah (Non-PNS)',
+    pangkatGolongan: '- (Non-PNS / Non-Golongan)',
+    terakhirLogin: '18 Agu 2026',
+    avatarColor: 'bg-cyan-600',
+  },
+  // Mutasi Masuk
+  {
+    id: 'usr-014',
+    nama: 'Nurhasanah, S.Pd.',
+    nip: '19940215 202012 2 006',
+    email: 'nurhasanah@sdn006.sch.id',
+    role: 'user',
+    kategoriTugas: 'wali_kelas',
+    tingkatKelas: 'Kelas 3',
+    jabatan: 'Guru Kelas 3 (Mutasi Masuk)',
+    status: 'Mutasi Masuk',
+    statusKepegawaian: 'PPPK (Pegawai Pemerintah dg Perjanjian Kerja)',
+    pangkatGolongan: 'Penata Muda (III/a)',
+    isMutasiMasuk: true,
+    sekolahAsalMutasi: 'SDN 002 Singingi Hilir',
+    tglMasukSekolah: '2024-07-15',
+    noSkMasuk: '821.2/DISDIK-KS/MUTASI/2024/078',
+    tglSkMasuk: '2024-07-08',
+    pejabatSkMasuk: 'Kepala Dinas Pendidikan Pemuda dan Olahraga',
+    alasanMutasiMasuk: 'Pemerataan kebutuhan guru kelas SD di wilayah Singingi Hilir',
+    terakhirLogin: 'Kemarin, 11:20 WIB',
+    avatarColor: 'bg-teal-600',
+  },
+  // Mutasi Keluar & Pensiun dengan Alasan Keluar
+  {
+    id: 'usr-015',
+    nama: 'Irfan Fahrezi, S.Pd.',
+    nip: '19950821 202203 1 002',
+    email: 'irfan.fahrezi@sdn006.sch.id',
+    role: 'user',
+    kategoriTugas: 'guru_mapel',
+    mataPelajaran: 'Bahasa Inggris',
+    jabatan: 'Guru Mapel Bahasa Inggris (Mutasi Keluar)',
+    status: 'Mutasi Keluar',
+    statusKepegawaian: 'PPPK (Pegawai Pemerintah dg Perjanjian Kerja)',
+    pangkatGolongan: 'Penata Muda (III/a)',
+    alasanKeluar: 'Pindah Tugas / Mutasi Dinas ke Sekolah Lain',
+    sekolahTujuanMutasi: 'SD Negeri 001 Teluk Kuantan',
+    tglKeluar: '2025-07-10',
+    noSkMutasi: '824/DISDIK-KS/MUT/2025/112',
+    tglSkMutasi: '2025-07-02',
+    pejabatSkMutasi: 'Kepala Dinas Pendidikan Kuantan Singingi',
+    keteranganKeluar: 'Pindah tugas ke ibukota kabupaten mendampingi domisili keluarga',
+    terakhirLogin: '10 Jul 2025',
+    avatarColor: 'bg-rose-600',
+  },
+  {
+    id: 'usr-016',
+    nama: 'Drs. H. Syaamsudin, M.Pd.',
+    nip: '19640410 198603 1 008',
+    email: 'syaamsudin@sdn006.sch.id',
+    role: 'user',
+    kategoriTugas: 'wali_kelas',
+    tingkatKelas: 'Kelas 6',
+    jabatan: 'Mantan Guru Kelas 6 (Purna Tugas / Pensiun)',
+    status: 'Pensiun',
+    statusKepegawaian: 'PNS (Pegawai Negeri Sipil)',
+    pangkatGolongan: 'Pembina Utama Muda (IV/c)',
+    alasanKeluar: 'Pensiun Batas Usia Pensiun (BUP)',
+    tglKeluar: '2024-05-01',
+    tanggalPensiun: '2024-05-01',
+    noSkPensiun: '00045/BKN/PENSIUN/2024',
+    noSkMutasi: '00045/BKN/PENSIUN/2024',
+    tglSkMutasi: '2024-04-15',
+    pejabatSkMutasi: 'BKN Kantor Regional XII Pekanbaru',
+    pejabatSkPensiun: 'BKN Kantor Regional XII Pekanbaru',
+    keteranganKeluar: 'Pensiun resmi per 1 Mei 2024 setelah mengabdi 38 tahun',
+    keteranganKeaktifan: 'Purna tugas terhitung 1 Mei 2024',
+    terakhirLogin: '30 Apr 2024',
+    avatarColor: 'bg-slate-600',
   },
 ];
 
@@ -272,6 +408,10 @@ interface SchoolContextType {
   addAdminUser: (user: Omit<AdminUser, 'id' | 'terakhirLogin'>) => void;
   updateAdminUser: (id: string, data: Partial<AdminUser>) => void;
   deleteAdminUser: (id: string) => void;
+  importAdminUsersBulk: (
+    newUsers: Partial<AdminUser>[],
+    strategy?: 'append' | 'replace'
+  ) => { added: number; updated: number };
   
   // Security Settings
   securitySettings: SecuritySettings;
@@ -897,6 +1037,118 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const target = adminUsers.find(u => u.id === id);
     setAdminUsers(prev => prev.filter(u => u.id !== id));
     logActivity('PENGATURAN', `Menghapus akun petugas: ${target?.nama || id}`);
+  };
+
+  const importAdminUsersBulk = (
+    newUsers: Partial<AdminUser>[],
+    strategy: 'append' | 'replace' = 'append'
+  ): { added: number; updated: number } => {
+    let addedCount = 0;
+    let updatedCount = 0;
+
+    const formattedUsers: AdminUser[] = newUsers.map((u, idx) => {
+      const generatedId = u.id || `usr-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`;
+      return {
+        id: generatedId,
+        nama: u.nama || 'PEGAWAI BARU',
+        gelarDepan: u.gelarDepan || '',
+        gelarBelakang: u.gelarBelakang || '',
+        username: u.username || `user_${Date.now()}_${idx}`,
+        password: u.password || 'guru123',
+        nip: u.nip || '-',
+        nuptk: u.nuptk || '-',
+        nik: u.nik || '',
+        jenisKelamin: u.jenisKelamin || 'L',
+        tempatLahir: u.tempatLahir || 'Sungai Buluh',
+        tanggalLahir: u.tanggalLahir || '1990-01-01',
+        namaIbuKandung: u.namaIbuKandung || '',
+        statusPernikahan: u.statusPernikahan || 'Menikah',
+        agama: u.agama || 'Islam',
+        noHp: u.noHp || '',
+        email: u.email || `${(u.nama || 'pegawai').toLowerCase().replace(/[^a-z0-9]/g, '')}@sdn006.sch.id`,
+        alamat: u.alamat || 'Desa Sungai Buluh',
+        statusKepegawaian: u.statusKepegawaian || 'PNS (Pegawai Negeri Sipil)',
+        pangkatGolongan: u.pangkatGolongan || 'Penata Muda (III/a)',
+        pendidikanTerakhir: u.pendidikanTerakhir || 'S1 / Sarjana (D-IV)',
+        jurusanPendidikan: u.jurusanPendidikan || 'Pendidikan Guru Sekolah Dasar (PGSD)',
+        ptAsal: u.ptAsal || '',
+        tmtPengangkatan: u.tmtPengangkatan || '',
+        tmtTugas: u.tmtTugas || '',
+        fotoUrl: u.fotoUrl || '',
+        role: u.role || ((u.kategoriTugas === 'kepala_sekolah' || u.kategoriTugas === 'tenaga_kependidikan') ? 'admin' : 'user'),
+        jabatan: u.jabatan || 'Guru / Tenaga Kependidikan',
+        kategoriTugas: u.kategoriTugas || 'wali_kelas',
+        tingkatKelas: u.tingkatKelas || '',
+        mataPelajaran: u.mataPelajaran || '',
+        tugasTendik: u.tugasTendik || '',
+        tugasTambahan: u.tugasTambahan || '',
+        status: u.status || 'Aktif',
+        isMutasiMasuk: u.isMutasiMasuk,
+        sekolahAsalMutasi: u.sekolahAsalMutasi,
+        tglMasukSekolah: u.tglMasukSekolah,
+        noSkMasuk: u.noSkMasuk,
+        tglSkMasuk: u.tglSkMasuk,
+        pejabatSkMasuk: u.pejabatSkMasuk,
+        alasanMutasiMasuk: u.alasanMutasiMasuk,
+        alasanKeluar: u.alasanKeluar,
+        sekolahTujuanMutasi: u.sekolahTujuanMutasi,
+        tglKeluar: u.tglKeluar,
+        noSkMutasi: u.noSkMutasi,
+        tglSkMutasi: u.tglSkMutasi,
+        pejabatSkMutasi: u.pejabatSkMutasi,
+        keteranganKeluar: u.keteranganKeluar,
+        tanggalPensiun: u.tanggalPensiun,
+        noSkPensiun: u.noSkPensiun,
+        pejabatSkPensiun: u.pejabatSkPensiun,
+        jenisCuti: u.jenisCuti,
+        tglMulaiCuti: u.tglMulaiCuti,
+        tglSelesaiCuti: u.tglSelesaiCuti,
+        noIzinCuti: u.noIzinCuti,
+        keteranganKeaktifan: u.keteranganKeaktifan,
+        terakhirLogin: u.terakhirLogin || 'Belum pernah',
+        avatarColor: u.avatarColor || 'bg-blue-600',
+      };
+    });
+
+    if (strategy === 'replace') {
+      setAdminUsers(formattedUsers);
+      addedCount = formattedUsers.length;
+    } else {
+      setAdminUsers(prev => {
+        const toAdd: AdminUser[] = [];
+        const toUpdate: AdminUser[] = [];
+
+        formattedUsers.forEach(nu => {
+          const match = prev.find(p => 
+            (nu.nip && nu.nip !== '-' && p.nip === nu.nip) ||
+            (nu.nik && p.nik === nu.nik) ||
+            (p.nama.toLowerCase().trim() === nu.nama.toLowerCase().trim())
+          );
+
+          if (match) {
+            toUpdate.push(nu);
+            updatedCount++;
+          } else {
+            toAdd.push(nu);
+            addedCount++;
+          }
+        });
+
+        const merged = prev.map(p => {
+          const match = toUpdate.find(u => 
+            (u.nip && u.nip !== '-' && p.nip === u.nip) ||
+            (u.nik && p.nik === u.nik) ||
+            (p.nama.toLowerCase().trim() === u.nama.toLowerCase().trim())
+          );
+          return match ? { ...p, ...match } : p;
+        });
+
+        return [...toAdd, ...merged];
+      });
+    }
+
+    logActivity('IMPORT', `Mengimpor ${addedCount} data baru & memperbarui ${updatedCount} data Guru & Tenaga Kependidikan dari berkas Excel`);
+    return { added: addedCount, updated: updatedCount };
   };
 
   const updateSecuritySettings = (settings: Partial<SecuritySettings>) => {
@@ -2263,6 +2515,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         addAdminUser,
         updateAdminUser,
         deleteAdminUser,
+        importAdminUsersBulk,
         securitySettings,
         updateSecuritySettings,
         getWaliKelasForClass,

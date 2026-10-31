@@ -173,7 +173,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'teachers',
-      label: 'Data Guru',
+      label: 'Data Guru & Tenaga Kependidikan',
       icon: GraduationCap,
       badge: teacherCount,
       badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200',
