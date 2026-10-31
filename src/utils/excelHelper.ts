@@ -1295,7 +1295,13 @@ export async function parseExcelOrCsvFile(file: File): Promise<ImportParseSummar
               return (raw === '7' || raw === '7A' || raw === '7B' || raw.toLowerCase() === 'kelas 7' || raw.toLowerCase() === 'vii') ? 'Kelas 1' : raw;
             })(),
             status,
-            tahunMasuk: String(getCol(rowDict, 'TAHUN_MASUK') || new Date().getFullYear().toString()).trim(),
+            tahunMasuk: (() => {
+              const explicit = String(getCol(rowDict, 'TAHUN_MASUK') || '').trim();
+              if (explicit) return explicit;
+              const tgl = normalizeDate(getCol(rowDict, 'TANGGAL_DITERIMA', 'TGL_DITERIMA'));
+              const match = tgl ? tgl.match(/^(\d{4})/) : null;
+              return match ? match[1] : new Date().getFullYear().toString();
+            })(),
             raport: [],
           };
 

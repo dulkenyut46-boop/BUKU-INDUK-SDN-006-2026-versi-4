@@ -50,6 +50,16 @@ interface StudentFormModalProps {
 
 type TabType = 'pribadi' | 'alamat' | 'ortu' | 'kesehatan' | 'masuk' | 'bantuan';
 
+// Helper to extract 4-digit year from date string (YYYY-MM-DD or any valid date string)
+export const extractYearFromDate = (dateStr?: string): string => {
+  if (!dateStr) return '';
+  const match = dateStr.match(/^(\d{4})/);
+  if (match) return match[1];
+  const parsed = new Date(dateStr);
+  if (!isNaN(parsed.getFullYear())) return `${parsed.getFullYear()}`;
+  return '';
+};
+
 // Helper function to safely merge existing student data with standard defaults
 const getInitialStudentData = (
   studentToEdit?: Student | null,
@@ -64,6 +74,15 @@ const getInitialStudentData = (
   const defaultZip = schoolProfile?.kodePos || '29563';
 
   if (studentToEdit) {
+    const rawTanggalDiterima = studentToEdit.tanggalDiterima || `${currentYear}-07-15`;
+    const yearFromDiterima = extractYearFromDate(rawTanggalDiterima) || `${currentYear}`;
+
+    // Sinkronkan tahunMasuk dengan tahun yang ada di form Diterima Tanggal
+    // Jika studentToEdit sudah memiliki format tahun ajaran yang diawali tahun diterima (cth: "2021/2022" utk 2021), pertahankan; selain itu samakan persis dengan yearFromDiterima
+    const resolvedTahunMasuk = (studentToEdit.tahunMasuk && studentToEdit.tahunMasuk.startsWith(yearFromDiterima))
+      ? studentToEdit.tahunMasuk
+      : yearFromDiterima;
+
     return {
       ...studentToEdit,
       noInduk: studentToEdit.noInduk || '',
@@ -156,13 +175,13 @@ const getInitialStudentData = (
       // Masuk
       sekolahAsalTK: studentToEdit.sekolahAsalTK !== undefined ? studentToEdit.sekolahAsalTK : '',
       noIjazahTK: studentToEdit.noIjazahTK || '',
-      tanggalDiterima: studentToEdit.tanggalDiterima || `${currentYear}-07-15`,
+      tanggalDiterima: rawTanggalDiterima,
       diterimaDiKelas: (!studentToEdit.diterimaDiKelas || studentToEdit.diterimaDiKelas === '7' || studentToEdit.diterimaDiKelas === '7A' || studentToEdit.diterimaDiKelas === '7B' || studentToEdit.diterimaDiKelas.toLowerCase() === 'kelas 7' || studentToEdit.diterimaDiKelas.toLowerCase() === 'vii')
         ? 'Kelas 1'
         : (studentToEdit.diterimaDiKelas || studentToEdit.kelasSekarang || 'Kelas 1'),
       kelasSekarang: studentToEdit.kelasSekarang || 'Kelas 1',
       status: studentToEdit.status || 'Aktif',
-      tahunMasuk: studentToEdit.tahunMasuk || `${currentYear}`,
+      tahunMasuk: resolvedTahunMasuk,
       fotoUrl: studentToEdit.fotoUrl || '',
 
       // Penerima Bantuan (No. 6)
@@ -1901,17 +1920,31 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* 1. Diterima Tanggal */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Diterima Tanggal
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Diterima Tanggal
+                    </label>
+                    {formData.tanggalDiterima && (
+                      <span className="text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400">
+                        Tahun: {extractYearFromDate(formData.tanggalDiterima)}
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="date"
                     value={formData.tanggalDiterima || ''}
-                    onChange={(e) => updateField('tanggalDiterima', e.target.value)}
+                    onChange={(e) => {
+                      const newDate = e.target.value;
+                      updateField('tanggalDiterima', newDate);
+                      const year = extractYearFromDate(newDate);
+                      if (year) {
+                        updateField('tahunMasuk', year);
+                      }
+                    }}
                     className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono"
                   />
                   <span className="text-[10px] text-slate-400 mt-0.5 block">
-                    Tanggal resmi diterima di sekolah
+                    Tanggal resmi diterima (Tahun Masuk otomatis disamakan)
                   </span>
                 </div>
 
@@ -2276,16 +2309,79 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Tahun Masuk (Tahun Pelajaran)
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Tahun Masuk (Tahun Pelajaran)
+                    </label>
+                    {extractYearFromDate(formData.tanggalDiterima) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const y = extractYearFromDate(formData.tanggalDiterima);
+                          if (y) updateField('tahunMasuk', y);
+                        }}
+                        className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer flex items-center gap-1 transition-colors"
+                        title="Klik untuk menyamakan data dengan tahun yang ada di form Diterima Tanggal"
+                      >
+                        <span>🔄 Samakan ({extractYearFromDate(formData.tanggalDiterima)})</span>
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="text"
-                    value={formData.tahunMasuk || `${new Date().getFullYear()}`}
+                    value={formData.tahunMasuk ?? (extractYearFromDate(formData.tanggalDiterima) || `${new Date().getFullYear()}`)}
                     onChange={(e) => updateField('tahunMasuk', e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono"
-                    placeholder="2025"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500"
+                    placeholder={extractYearFromDate(formData.tanggalDiterima) || "2025"}
                   />
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                    <span>
+                      {extractYearFromDate(formData.tanggalDiterima) ? (
+                        <>Sesuai Diterima Tanggal: <strong className="text-blue-600 dark:text-blue-400 font-bold">{extractYearFromDate(formData.tanggalDiterima)}</strong></>
+                      ) : (
+                        'Tahun masuk register siswa'
+                      )}
+                    </span>
+                    {extractYearFromDate(formData.tanggalDiterima) && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const y = extractYearFromDate(formData.tanggalDiterima);
+                            if (y) updateField('tahunMasuk', y);
+                          }}
+                          className={cn(
+                            "px-1.5 py-0.5 rounded text-[9.5px] font-bold cursor-pointer transition-colors",
+                            formData.tahunMasuk === extractYearFromDate(formData.tanggalDiterima)
+                              ? "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200"
+                              : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                          )}
+                          title="Gunakan format tahun tunggal"
+                        >
+                          {extractYearFromDate(formData.tanggalDiterima)}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const y = extractYearFromDate(formData.tanggalDiterima);
+                            if (y) {
+                              const nextY = parseInt(y, 10) + 1;
+                              updateField('tahunMasuk', `${y}/${nextY}`);
+                            }
+                          }}
+                          className={cn(
+                            "px-1.5 py-0.5 rounded text-[9.5px] font-bold cursor-pointer transition-colors",
+                            formData.tahunMasuk === `${extractYearFromDate(formData.tanggalDiterima)}/${parseInt(extractYearFromDate(formData.tanggalDiterima) || '0', 10) + 1}`
+                              ? "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200"
+                              : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                          )}
+                          title="Gunakan format tahun pelajaran"
+                        >
+                          {extractYearFromDate(formData.tanggalDiterima)}/{parseInt(extractYearFromDate(formData.tanggalDiterima) || '0', 10) + 1}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
