@@ -174,6 +174,8 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
 
   // Filter khusus status penerima bantuan ('ALL' | 'BANTUAN' | 'NON_BANTUAN')
   const [filterBantuan, setFilterBantuan] = useState<'ALL' | 'BANTUAN' | 'NON_BANTUAN'>('ALL');
+  // State drawer/panel ekspansi untuk menampilkan siswa berstatus "Belum Masuk SD"
+  const [isBelumMasukDrawerOpen, setIsBelumMasukDrawerOpen] = useState(false);
 
   // Helper: Cek apakah siswa pernah mendapatkan bantuan & kumpulkan riwayatnya
   const getStudentBantuanInfo = (s: Student) => {
@@ -389,10 +391,13 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
   const studentsDropOut = useMemo(() => projectedStudents.filter(s => s.status === 'Drop Out'), [projectedStudents]);
   const studentsMeninggal = useMemo(() => projectedStudents.filter(s => s.status === 'Meninggal'), [projectedStudents]);
 
-  // Display scope for Tab "Daftar Siswa Aktif": HANYA siswa dengan status "Aktif", selain itu disembunyikan
+  // Display scope for Tab "Daftar Siswa Aktif": Siswa dengan status "Aktif" (atau "Belum Masuk SD" bila filter Belum Masuk SD aktif)
   const displayScopeStudents = useMemo(() => {
+    if (selectedTingkat === 'BELUM_MASUK_SD' || selectedStatus === 'Belum Masuk SD') {
+      return projectedStudents.filter(s => s.status === 'Belum Masuk SD');
+    }
     return projectedStudents.filter(s => s.status === 'Aktif' && isKelas1Sampai6(s.kelasSekarang));
-  }, [projectedStudents]);
+  }, [projectedStudents, selectedTingkat, selectedStatus]);
 
   // Modal Import Rombel & Download Template State
   const [isImportRombelModalOpen, setIsImportRombelModalOpen] = useState(false);
@@ -1350,6 +1355,11 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
                       Tingkat {t} (Kelas {t}) • {tingkatCounts[t].total} Siswa
                     </option>
                   ))}
+                  {totalBelumMasukSD > 0 && (
+                    <option value="BELUM_MASUK_SD">
+                      Belum Masuk SD • {totalBelumMasukSD} Siswa
+                    </option>
+                  )}
                 </select>
               </div>
 
@@ -1819,55 +1829,163 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
 
             {/* Informative Banner when students have 'Belum Masuk SD' in this school year */}
             {totalBelumMasukSD > 0 && (
-              <div className="mx-5 my-3 p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/20 border border-amber-300 dark:border-amber-800 rounded-xl text-xs text-amber-950 dark:text-amber-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-                <div className="flex items-start sm:items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs font-black">
-                    <AlertTriangle className="w-4 h-4" />
+              <div className="mx-5 my-3 p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/20 border border-amber-300 dark:border-amber-800 rounded-xl text-xs text-amber-950 dark:text-amber-100 shadow-xs transition-all">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start sm:items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs font-black">
+                      <AlertTriangle className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="font-extrabold text-amber-950 dark:text-amber-100 flex items-center gap-2 flex-wrap">
+                        <span>Tahun Pelajaran {activeTP}: {totalBelumMasukSD} Siswa Berstatus "Belum Masuk SD"</span>
+                        <span className="text-[10px] px-1.5 py-0.2 bg-amber-600 text-white font-bold rounded">
+                          Terdeteksi
+                        </span>
+                      </p>
+                      <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-0.5 leading-relaxed">
+                        Siswa belum memiliki rombel aktif Kelas 1-6 pada Tahun Pelajaran <strong>{activeTP}</strong>, dikeluarkan dari rombel, atau tanggal diterima pendaftaran berada di luar tahun ajaran aktif.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-extrabold text-amber-950 dark:text-amber-100 flex items-center gap-2">
-                      <span>Tahun Pelajaran {activeTP}: {totalBelumMasukSD} Siswa Berstatus "Belum Masuk SD"</span>
-                      <span className="text-[10px] px-1.5 py-0.2 bg-amber-600 text-white font-bold rounded">
-                        Otomatis
-                      </span>
-                    </p>
-                    <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-0.5 leading-relaxed">
-                      Siswa kelas 1 pada tahun pelajaran sebelumnya otomatis berstatus <strong>Belum Masuk SD</strong> karena belum terdaftar di SD pada tahun {activeTP}.
-                    </p>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedTingkat('BELUM_MASUK_SD');
-                      setSelectedRombel('ALL');
-                      setCurrentPage(1);
-                    }}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer shadow-xs",
-                      selectedTingkat === 'BELUM_MASUK_SD'
-                        ? "bg-amber-600 text-white"
-                        : "bg-white dark:bg-slate-800 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 hover:bg-amber-100"
-                    )}
-                  >
-                    Filter Belum Masuk SD ({totalBelumMasukSD})
-                  </button>
-                  {selectedTingkat === 'BELUM_MASUK_SD' && (
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setIsBelumMasukDrawerOpen(prev => !prev)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer shadow-xs bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-1.5"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>{isBelumMasukDrawerOpen ? 'Tutup Daftar Siswa' : `Tampilkan ${totalBelumMasukSD} Siswa`}</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
-                        setSelectedTingkat('ALL');
+                        setSelectedTingkat('BELUM_MASUK_SD');
                         setSelectedRombel('ALL');
                         setCurrentPage(1);
                       }}
-                      className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-lg cursor-pointer"
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer shadow-xs",
+                        selectedTingkat === 'BELUM_MASUK_SD'
+                          ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                          : "bg-white dark:bg-slate-800 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 hover:bg-amber-100"
+                      )}
                     >
-                      Tampilkan Semua
+                      Tampilkan di Tabel Utama ({totalBelumMasukSD})
                     </button>
-                  )}
+                    {selectedTingkat === 'BELUM_MASUK_SD' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedTingkat('ALL');
+                          setSelectedRombel('ALL');
+                          setCurrentPage(1);
+                        }}
+                        className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-lg cursor-pointer"
+                      >
+                        Reset Filter
+                      </button>
+                    )}
+                  </div>
                 </div>
+
+                {/* Expandable detailed drawer/table for Belum Masuk SD students */}
+                {isBelumMasukDrawerOpen && (
+                  <div className="mt-4 pt-3.5 border-t border-amber-200 dark:border-amber-800/60 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-extrabold text-amber-950 dark:text-amber-100 text-xs flex items-center gap-1.5">
+                        <Users className="w-4 h-4 text-amber-600" />
+                        <span>Daftar Rinci {belumMasukSDStudents.length} Siswa Berstatus "Belum Masuk SD" (TP {activeTP})</span>
+                      </h4>
+                      <span className="text-[11px] text-amber-800 dark:text-amber-300">
+                        Total: <strong>{belumMasukSDStudents.length} Siswa</strong>
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto bg-white dark:bg-slate-900 rounded-lg border border-amber-200 dark:border-amber-800/70 shadow-xs">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-amber-100/70 dark:bg-amber-950/60 text-amber-950 dark:text-amber-200 uppercase text-[10.5px] font-bold border-b border-amber-200 dark:border-amber-800/50">
+                          <tr>
+                            <th className="py-2.5 px-3 text-center w-10">No</th>
+                            <th className="py-2.5 px-3">Nama Siswa</th>
+                            <th className="py-2.5 px-3">No Induk / NISN</th>
+                            <th className="py-2.5 px-3 text-center">L/P</th>
+                            <th className="py-2.5 px-3">Tgl Diterima & Masuk</th>
+                            <th className="py-2.5 px-3">Diterima di Kelas</th>
+                            <th className="py-2.5 px-3">Keterangan Status</th>
+                            <th className="py-2.5 px-3 text-center">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-amber-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
+                          {belumMasukSDStudents.map((st, idx) => {
+                            const admissionYear = st.tanggalDiterima ? st.tanggalDiterima.substring(0, 4) : (st.tahunMasuk || '-');
+                            return (
+                              <tr key={st.id} className="hover:bg-amber-50/60 dark:hover:bg-slate-800/40 transition-colors">
+                                <td className="py-2.5 px-3 text-center font-bold text-slate-400 font-mono">{idx + 1}</td>
+                                <td className="py-2.5 px-3">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold shrink-0 overflow-hidden border border-amber-300 dark:border-amber-800">
+                                      {st.fotoUrl ? (
+                                        <img src={st.fotoUrl} alt={st.namaLengkap} className="w-full h-full object-cover" />
+                                      ) : (
+                                        st.namaLengkap.charAt(0)
+                                      )}
+                                    </div>
+                                    <div>
+                                      <div 
+                                        className="font-bold text-slate-900 dark:text-slate-100 hover:text-amber-600 dark:hover:text-amber-300 cursor-pointer"
+                                        onClick={() => onSelectDetail(st.id)}
+                                        title="Buka profil lengkap siswa"
+                                      >
+                                        {st.namaLengkap}
+                                      </div>
+                                      <div className="text-[10px] text-slate-400">
+                                        {st.tempatLahir}, {st.tanggalLahir ? formatIndonesianDate(st.tanggalLahir) : '-'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 font-mono">
+                                  <div className="font-semibold text-slate-800 dark:text-slate-200">{st.noInduk}</div>
+                                  <div className="text-[10px] text-slate-500">NISN: {st.nisn}</div>
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <span className={cn(
+                                    "px-1.5 py-0.5 rounded text-[10px] font-black",
+                                    st.jenisKelamin === 'L' ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300" : "bg-pink-100 text-pink-700 dark:bg-pink-950 dark:text-pink-300"
+                                  )}>
+                                    {st.jenisKelamin}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <div className="font-medium">{st.tanggalDiterima ? formatIndonesianDate(st.tanggalDiterima) : '-'}</div>
+                                  <div className="text-[10px] text-slate-400 font-mono">TP Masuk: {st.tahunMasuk || admissionYear}</div>
+                                </td>
+                                <td className="py-2.5 px-3 font-medium text-slate-700 dark:text-slate-300">
+                                  {st.diterimaDiKelas || 'Kelas 1'}
+                                </td>
+                                <td className="py-2.5 px-3 text-[11px] text-amber-800 dark:text-amber-300">
+                                  {st.status === 'Belum Masuk SD' && st.kelasSekarang === 'Belum Masuk SD'
+                                    ? 'Belum ditempatkan dalam rombel Kelas 1-6 (atau dikeluarkan dari rombel)'
+                                    : `Pendaftaran (${admissionYear}) belum berjalan pada TP ${activeTP}`}
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => onSelectDetail(st.id)}
+                                    className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white rounded-lg font-bold text-[11px] cursor-pointer shadow-xs transition-all"
+                                  >
+                                    Lihat Profil
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
