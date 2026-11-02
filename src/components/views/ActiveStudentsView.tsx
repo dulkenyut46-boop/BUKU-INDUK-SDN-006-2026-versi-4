@@ -60,7 +60,10 @@ import {
   ProjectedStudent,
   isKelas1Sampai6,
   getTingkatKelasNumber,
-  isStudentMutasiMasuk 
+  isStudentMutasiMasuk,
+  calculateMonthlyPeriodicStats,
+  AcademicMonthInfo,
+  MonthlyPeriodicStatResult
 } from '../../utils/academicYearHelper';
 import { ActiveTab } from '../layout/Sidebar';
 
@@ -375,10 +378,31 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
     setDraftStatusEdits({});
   };
 
-  // Exclusively Active Students in Grade 1 to 6 on activeTP
+  // Perhitungan Statistik Bulanan & Periodik Siswa Aktif tersinkronisasi penuh dengan MonthlyActiveStudentsSummaryCard
+  const { academicMonths, periodicMonthlyStats, runningMonth } = useMemo(() => {
+    return calculateMonthlyPeriodicStats(projectedStudents, activeTP);
+  }, [projectedStudents, activeTP]);
+
+  // Selected Month Key: Default otomatis ke bulan yang sedang berjalan (running month)
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string>(() => runningMonth.key);
+
+  // Sinkronisasi otomatis selectedMonthKey saat tahun pelajaran aktif berganti
+  React.useEffect(() => {
+    setSelectedMonthKey(runningMonth.key);
+  }, [runningMonth.key]);
+
+  const currentMonthData = useMemo(() => {
+    return periodicMonthlyStats.find(p => p.month.key === selectedMonthKey) || 
+           periodicMonthlyStats.find(p => p.month.key === runningMonth.key) || 
+           periodicMonthlyStats[0];
+  }, [periodicMonthlyStats, selectedMonthKey, runningMonth.key]);
+
+  const selectedMonthInfo = currentMonthData.month;
+
+  // Exclusively Active Students in Grade 1 to 6 on activeTP (disesuaikan dengan Statistik Bulanan & Periodik Siswa Aktif di bulan yang sedang berjalan)
   const activeStudents = useMemo(() => {
-    return projectedStudents.filter(s => s.status === 'Aktif' && isKelas1Sampai6(s.kelasSekarang));
-  }, [projectedStudents]);
+    return currentMonthData.akhirList;
+  }, [currentMonthData.akhirList]);
 
   // Students with status "Belum Masuk SD" on activeTP
   const belumMasukSDStudents = useMemo(() => {
@@ -391,13 +415,13 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
   const studentsDropOut = useMemo(() => projectedStudents.filter(s => s.status === 'Drop Out'), [projectedStudents]);
   const studentsMeninggal = useMemo(() => projectedStudents.filter(s => s.status === 'Meninggal'), [projectedStudents]);
 
-  // Display scope for Tab "Daftar Siswa Aktif": Siswa dengan status "Aktif" (atau "Belum Masuk SD" bila filter Belum Masuk SD aktif)
+  // Display scope for Tab "Daftar Siswa Aktif": Siswa dengan status "Aktif" pada bulan berjalan (atau "Belum Masuk SD" bila filter Belum Masuk SD aktif)
   const displayScopeStudents = useMemo(() => {
     if (selectedTingkat === 'BELUM_MASUK_SD' || selectedStatus === 'Belum Masuk SD') {
       return projectedStudents.filter(s => s.status === 'Belum Masuk SD');
     }
-    return projectedStudents.filter(s => s.status === 'Aktif' && isKelas1Sampai6(s.kelasSekarang));
-  }, [projectedStudents, selectedTingkat, selectedStatus]);
+    return activeStudents;
+  }, [activeStudents, projectedStudents, selectedTingkat, selectedStatus]);
 
   // Modal Import Rombel & Download Template State
   const [isImportRombelModalOpen, setIsImportRombelModalOpen] = useState(false);
@@ -438,28 +462,10 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
     return availableClasses.filter(cls => getTingkatKelasNumber(cls) === targetTingkat);
   }, [availableClasses, selectedTingkat]);
 
-  // Statistik jumlah siswa per Tingkat Kelas (Tingkat 1 s/d 6)
+  // Statistik jumlah siswa per Tingkat Kelas (Tingkat 1 s/d 6) tersinkronisasi penuh dengan Statistik Bulanan
   const tingkatCounts = useMemo(() => {
-    const counts: Record<number, { total: number; jmlL: number; jmlP: number }> = {
-      1: { total: 0, jmlL: 0, jmlP: 0 },
-      2: { total: 0, jmlL: 0, jmlP: 0 },
-      3: { total: 0, jmlL: 0, jmlP: 0 },
-      4: { total: 0, jmlL: 0, jmlP: 0 },
-      5: { total: 0, jmlL: 0, jmlP: 0 },
-      6: { total: 0, jmlL: 0, jmlP: 0 },
-    };
-
-    activeStudents.forEach(s => {
-      const t = getTingkatKelasNumber(s.kelasSekarang);
-      if (t >= 1 && t <= 6) {
-        counts[t].total += 1;
-        if (s.jenisKelamin === 'L') counts[t].jmlL += 1;
-        else counts[t].jmlP += 1;
-      }
-    });
-
-    return counts;
-  }, [activeStudents]);
+    return currentMonthData.tingkatCounts;
+  }, [currentMonthData.tingkatCounts]);
 
   // Jumlah siswa aktif yang pernah mendapatkan bantuan
   const countPernahBantuan = useMemo(() => {
@@ -541,10 +547,10 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
     return filteredActiveStudents.slice(start, start + itemsPerPage);
   }, [filteredActiveStudents, currentPage, itemsPerPage]);
 
-  // Summary Metrics
-  const totalActive = activeStudents.length;
-  const totalLaki = activeStudents.filter(s => s.jenisKelamin === 'L').length;
-  const totalPerempuan = activeStudents.filter(s => s.jenisKelamin === 'P').length;
+  // Summary Metrics synchronized with current running month (Bulan yang sedang berjalan)
+  const totalActive = currentMonthData.totalAkhir;
+  const totalLaki = currentMonthData.totalAkhirL;
+  const totalPerempuan = currentMonthData.totalAkhirP;
   const persenLaki = totalActive > 0 ? Math.round((totalLaki / totalActive) * 100) : 0;
   const persenPerempuan = totalActive > 0 ? (100 - persenLaki) : 0;
   const totalBelumMasukSD = belumMasukSDStudents.length;
@@ -1016,6 +1022,10 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
                 </button>
               )}
 
+              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/20 text-blue-100 backdrop-blur-xs flex items-center gap-1.5 border border-white/20">
+                <Calendar className="w-3.5 h-3.5 text-amber-300" />
+                <span>Bulan Berjalan: <strong>{selectedMonthInfo.fullName}</strong></span>
+              </span>
               <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/20 text-blue-100 backdrop-blur-xs">
                 Semester {activeSemester}
               </span>
@@ -1213,7 +1223,12 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
         {/* Quick Stat Pill Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-white/15">
           <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3 border border-white/15">
-            <p className="text-[11px] font-bold text-blue-200">Total Siswa Aktif</p>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-bold text-blue-200">Total Siswa Aktif</p>
+              <span className="text-[9.5px] font-bold px-1.5 py-0.2 bg-white/20 rounded text-amber-200">
+                {selectedMonthInfo.shortName} {selectedMonthInfo.year}
+              </span>
+            </div>
             <p className="text-2xl font-black text-white mt-0.5">{totalActive} <span className="text-xs font-normal text-blue-200">Siswa</span></p>
           </div>
           <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3 border border-white/15">
@@ -1240,6 +1255,8 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
           activeSemester={activeSemester}
           availableClasses={availableClasses}
           schoolProfile={schoolProfile}
+          selectedMonthKey={selectedMonthKey}
+          onSelectMonthKey={setSelectedMonthKey}
           onSelectDetail={onSelectDetail}
           onEditStudent={onEditStudent}
           onSelectRombelFilter={(rombel) => {
@@ -1336,6 +1353,26 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {/* Filter Bulan Periodik / Bulan Berjalan */}
+              <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+                <span className="text-slate-500 font-medium">Bulan:</span>
+                <select
+                  value={selectedMonthKey}
+                  onChange={(e) => {
+                    setSelectedMonthKey(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer"
+                  title="Pilih bulan periodik untuk melihat data siswa aktif pada bulan tersebut"
+                >
+                  {academicMonths.map(m => (
+                    <option key={`opt-month-${m.key}`} value={m.key}>
+                      {m.fullName} {m.key === runningMonth.key ? '• (Bulan Berjalan)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Filter Tingkat Kelas */}
               <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
                 <span className="text-slate-500 font-medium">Tingkat:</span>
@@ -4052,6 +4089,8 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
             activeSemester={activeSemester}
             availableClasses={availableClasses}
             schoolProfile={schoolProfile}
+            selectedMonthKey={selectedMonthKey}
+            onSelectMonthKey={setSelectedMonthKey}
             onSelectDetail={onSelectDetail}
             onEditStudent={onEditStudent}
             onSelectRombelFilter={(rombel) => {

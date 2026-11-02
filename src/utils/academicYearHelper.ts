@@ -366,3 +366,365 @@ export const isStudentMutasiMasuk = (s: Student): boolean => {
 
   return isDiterimaTingkatLanjutan || isSekolahAsalSD || hasTransferSurat;
 };
+
+export const NAMA_BULAN = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
+
+export const SHORT_BULAN = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+  'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'
+];
+
+export interface AcademicMonthInfo {
+  key: string; // YYYY-MM
+  year: number;
+  monthNum: number; // 1-12
+  monthIndex: number; // 0-11
+  monthName: string;
+  shortName: string;
+  fullName: string;
+  semester: 'Ganjil' | 'Genap';
+  isCurrent: boolean;
+}
+
+export interface MonthlyPeriodicStatResult {
+  month: AcademicMonthInfo;
+  totalAwal: number;
+  totalAwalL: number;
+  totalAwalP: number;
+  awalList: ProjectedStudent[];
+  masukList: ProjectedStudent[];
+  masukCount: number;
+  masukL: number;
+  masukP: number;
+  mutasiList: ProjectedStudent[];
+  mutasiCount: number;
+  mutasiL: number;
+  mutasiP: number;
+  meninggalList: ProjectedStudent[];
+  meninggalCount: number;
+  meninggalL: number;
+  meninggalP: number;
+  totalAkhir: number;
+  totalAkhirL: number;
+  totalAkhirP: number;
+  akhirList: ProjectedStudent[];
+  netChange: number;
+  tingkatCounts: Record<number, { total: number; l: number; p: number; jmlL: number; jmlP: number }>;
+  totalAktif: number;
+  totalAktifL: number;
+  totalAktifP: number;
+}
+
+export const extractYearMonth = (val?: string | null): string | null => {
+  if (!val || typeof val !== 'string') return null;
+  const trimmed = val.trim();
+  if (!trimmed) return null;
+
+  const isoMatch = trimmed.match(/^(\d{4})[-/.](\d{1,2})/);
+  if (isoMatch) {
+    const y = isoMatch[1];
+    const m = isoMatch[2].padStart(2, '0');
+    return `${y}-${m}`;
+  }
+
+  const dmyMatch = trimmed.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (dmyMatch) {
+    const y = dmyMatch[3];
+    const m = dmyMatch[2].padStart(2, '0');
+    return `${y}-${m}`;
+  }
+
+  const monthMap: Record<string, string> = {
+    jan: '01', januari: '01',
+    feb: '02', februari: '02',
+    mar: '03', maret: '03',
+    apr: '04', april: '04',
+    mei: '05',
+    jun: '06', juni: '06',
+    jul: '07', juli: '07',
+    ags: '08', agustus: '08',
+    sep: '09', september: '09',
+    okt: '10', oktober: '10',
+    nov: '11', november: '11',
+    des: '12', desember: '12'
+  };
+  const parts = trimmed.toLowerCase().split(/[\s,.-]+/);
+  let foundMonth: string | null = null;
+  let foundYear: string | null = null;
+  for (const p of parts) {
+    if (monthMap[p]) {
+      foundMonth = monthMap[p];
+    } else if (/^\d{4}$/.test(p)) {
+      foundYear = p;
+    }
+  }
+  if (foundMonth && foundYear) {
+    return `${foundYear}-${foundMonth}`;
+  }
+
+  return null;
+};
+
+export const getStudentAdmissionMonthKey = (s: Student, startYear: number): string => {
+  const parsedDiterima = extractYearMonth(s.tanggalDiterima);
+  if (parsedDiterima) return parsedDiterima;
+
+  const parsedMasuk = extractYearMonth((s as any).tanggalMasuk);
+  if (parsedMasuk) return parsedMasuk;
+
+  if (s.tahunMasuk && /^\d{4}$/.test(s.tahunMasuk.trim())) {
+    return `${s.tahunMasuk.trim()}-07`;
+  }
+  const parsedCreated = extractYearMonth(s.createdAt);
+  if (parsedCreated) return parsedCreated;
+
+  const grade = getTingkatKelasNumber(s.kelasSekarang || 'Kelas 1');
+  const estimatedYear = startYear - (Math.max(1, grade) - 1);
+  return `${estimatedYear}-07`;
+};
+
+export const getStudentMeninggalMonthKey = (s: Student, startYear: number): string | null => {
+  if (s.status !== 'Meninggal') return null;
+  const tgl = (s as any).tanggalMeninggal || s.mutasi?.tglMeninggalkan || s.mutasi?.dikeluarkanTanggal;
+  const parsed = extractYearMonth(tgl);
+  if (parsed) return parsed;
+
+  const parsedUpdated = extractYearMonth(s.updatedAt);
+  if (parsedUpdated) return parsedUpdated;
+
+  return `${startYear}-10`;
+};
+
+export const getStudentMutationMonthKey = (s: Student, startYear: number): string | null => {
+  if (s.status === 'Meninggal') {
+    return null;
+  }
+  const tgl = s.mutasi?.tglMeninggalkan || s.mutasi?.dikeluarkanTanggal || (s as any).tanggalMutasi || (s as any).tanggalMutasiKeluar;
+  const parsed = extractYearMonth(tgl);
+  if (parsed) return parsed;
+
+  if (s.status === 'Mutasi Keluar' || s.status === 'Drop Out') {
+    const parsedUpdated = extractYearMonth(s.updatedAt);
+    if (parsedUpdated) return parsedUpdated;
+    return `${startYear}-07`;
+  }
+  return null;
+};
+
+/**
+ * Menghitung Statistik Bulanan & Periodik Siswa Aktif untuk Tahun Pelajaran tertentu
+ * Menghasilkan data untuk setiap bulan dalam kalender akademik dan bulan yang sedang berjalan.
+ */
+export function calculateMonthlyPeriodicStats(
+  projectedStudents: ProjectedStudent[],
+  activeTP: string
+): {
+  academicMonths: AcademicMonthInfo[];
+  periodicMonthlyStats: MonthlyPeriodicStatResult[];
+  runningMonth: AcademicMonthInfo;
+  runningMonthData: MonthlyPeriodicStatResult;
+} {
+  const startYear = getAcademicYearStart(activeTP);
+  const endYear = startYear + 1;
+  const today = new Date();
+  const currentYearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+
+  const sequence = [
+    { num: 7, year: startYear, sem: 'Ganjil' as const },
+    { num: 8, year: startYear, sem: 'Ganjil' as const },
+    { num: 9, year: startYear, sem: 'Ganjil' as const },
+    { num: 10, year: startYear, sem: 'Ganjil' as const },
+    { num: 11, year: startYear, sem: 'Ganjil' as const },
+    { num: 12, year: startYear, sem: 'Ganjil' as const },
+    { num: 1, year: endYear, sem: 'Genap' as const },
+    { num: 2, year: endYear, sem: 'Genap' as const },
+    { num: 3, year: endYear, sem: 'Genap' as const },
+    { num: 4, year: endYear, sem: 'Genap' as const },
+    { num: 5, year: endYear, sem: 'Genap' as const },
+    { num: 6, year: endYear, sem: 'Genap' as const },
+  ];
+
+  const academicMonths: AcademicMonthInfo[] = sequence.map((item, index) => {
+    const key = `${item.year}-${String(item.num).padStart(2, '0')}`;
+    return {
+      key,
+      year: item.year,
+      monthNum: item.num,
+      monthIndex: index,
+      monthName: NAMA_BULAN[item.num - 1],
+      shortName: SHORT_BULAN[item.num - 1],
+      fullName: `${NAMA_BULAN[item.num - 1]} ${item.year}`,
+      semester: item.sem,
+      isCurrent: key === currentYearMonth,
+    };
+  });
+
+  const eligibleStudentsForTP = projectedStudents.filter(p => {
+    if (!isKelas1Sampai6(p.kelasSekarang) || p.projectedTingkat < 1 || p.projectedTingkat > 6) {
+      return false;
+    }
+    const mutKey = getStudentMutationMonthKey(p, startYear);
+    if (mutKey && mutKey < `${startYear}-07`) {
+      return false;
+    }
+    const menKey = getStudentMeninggalMonthKey(p, startYear);
+    if (menKey && menKey < `${startYear}-07`) {
+      return false;
+    }
+    const admKey = getStudentAdmissionMonthKey(p, startYear);
+    if (admKey > `${endYear}-06`) {
+      return false;
+    }
+    return true;
+  });
+
+  const startOfJulyKey = `${startYear}-07`;
+  let runningActiveList = eligibleStudentsForTP.filter(s => {
+    const admKey = getStudentAdmissionMonthKey(s, startYear);
+    const mutKey = getStudentMutationMonthKey(s, startYear);
+    const menKey = getStudentMeninggalMonthKey(s, startYear);
+    const enteredBeforeJuly = admKey < startOfJulyKey;
+    const notMutatedBeforeJuly = !mutKey || mutKey >= startOfJulyKey;
+    const notMeninggalBeforeJuly = !menKey || menKey >= startOfJulyKey;
+    return enteredBeforeJuly && notMutatedBeforeJuly && notMeninggalBeforeJuly;
+  });
+
+  const periodicMonthlyStats: MonthlyPeriodicStatResult[] = academicMonths.map(m => {
+    const awalList = [...runningActiveList];
+    const awalL = awalList.filter(s => s.jenisKelamin === 'L').length;
+    const awalP = awalList.filter(s => s.jenisKelamin === 'P').length;
+    const totalAwal = awalList.length;
+
+    const masukList = eligibleStudentsForTP.filter(s => {
+      const admKey = getStudentAdmissionMonthKey(s, startYear);
+      return admKey === m.key;
+    });
+    const masukL = masukList.filter(s => s.jenisKelamin === 'L').length;
+    const masukP = masukList.filter(s => s.jenisKelamin === 'P').length;
+    const masukCount = masukList.length;
+
+    const mutasiList = eligibleStudentsForTP.filter(s => {
+      const mutKey = getStudentMutationMonthKey(s, startYear);
+      return mutKey === m.key;
+    });
+    const mutasiL = mutasiList.filter(s => s.jenisKelamin === 'L').length;
+    const mutasiP = mutasiList.filter(s => s.jenisKelamin === 'P').length;
+    const mutasiCount = mutasiList.length;
+
+    const meninggalList = eligibleStudentsForTP.filter(s => {
+      const menKey = getStudentMeninggalMonthKey(s, startYear);
+      return menKey === m.key;
+    });
+    const meninggalL = meninggalList.filter(s => s.jenisKelamin === 'L').length;
+    const meninggalP = meninggalList.filter(s => s.jenisKelamin === 'P').length;
+    const meninggalCount = meninggalList.length;
+
+    const mutasiIds = new Set(mutasiList.map(s => s.id));
+    const meninggalIds = new Set(meninggalList.map(s => s.id));
+    const akhirMap = new Map<string, ProjectedStudent>();
+
+    awalList.forEach(s => {
+      if (!mutasiIds.has(s.id) && !meninggalIds.has(s.id)) {
+        akhirMap.set(s.id, s);
+      }
+    });
+    masukList.forEach(s => {
+      if (!mutasiIds.has(s.id) && !meninggalIds.has(s.id)) {
+        akhirMap.set(s.id, s);
+      }
+    });
+
+    const rawAkhirList = Array.from(akhirMap.values());
+    const akhirList = rawAkhirList.filter(s => {
+      const mutKey = getStudentMutationMonthKey(s, startYear);
+      if (mutKey && mutKey <= m.key) return false;
+      const menKey = getStudentMeninggalMonthKey(s, startYear);
+      if (menKey && menKey <= m.key) return false;
+      if (m.isCurrent && (s.status === 'Mutasi Keluar' || s.status === 'Meninggal' || s.status === 'Drop Out' || s.status === 'Lulus')) {
+        return false;
+      }
+      return true;
+    });
+
+    const akhirL = akhirList.filter(s => s.jenisKelamin === 'L').length;
+    const akhirP = akhirList.filter(s => s.jenisKelamin === 'P').length;
+    const totalAkhir = akhirList.length;
+    const netChange = masukCount - mutasiCount - meninggalCount;
+
+    runningActiveList = akhirList;
+
+    const tingkatCounts: Record<number, { total: number; l: number; p: number; jmlL: number; jmlP: number }> = {
+      1: { total: 0, l: 0, p: 0, jmlL: 0, jmlP: 0 },
+      2: { total: 0, l: 0, p: 0, jmlL: 0, jmlP: 0 },
+      3: { total: 0, l: 0, p: 0, jmlL: 0, jmlP: 0 },
+      4: { total: 0, l: 0, p: 0, jmlL: 0, jmlP: 0 },
+      5: { total: 0, l: 0, p: 0, jmlL: 0, jmlP: 0 },
+      6: { total: 0, l: 0, p: 0, jmlL: 0, jmlP: 0 },
+    };
+
+    akhirList.forEach(s => {
+      const t = getTingkatKelasNumber(s.kelasSekarang);
+      if (t >= 1 && t <= 6) {
+        tingkatCounts[t].total += 1;
+        if (s.jenisKelamin === 'L') {
+          tingkatCounts[t].l += 1;
+          tingkatCounts[t].jmlL += 1;
+        } else {
+          tingkatCounts[t].p += 1;
+          tingkatCounts[t].jmlP += 1;
+        }
+      }
+    });
+
+    return {
+      month: m,
+      totalAwal,
+      totalAwalL: awalL,
+      totalAwalP: awalP,
+      awalList,
+      masukList,
+      masukCount,
+      masukL,
+      masukP,
+      mutasiList,
+      mutasiCount,
+      mutasiL,
+      mutasiP,
+      meninggalList,
+      meninggalCount,
+      meninggalL,
+      meninggalP,
+      totalAkhir,
+      totalAkhirL: akhirL,
+      totalAkhirP: akhirP,
+      akhirList,
+      netChange,
+      tingkatCounts,
+      totalAktif: totalAkhir,
+      totalAktifL: akhirL,
+      totalAktifP: akhirP,
+    };
+  });
+
+  // Penentuan bulan berjalan:
+  // 1. Bulan kalender saat ini jika berada di dalam TP aktif
+  // 2. Jika TP sudah lewat (today > endYear-06), gunakan bulan penutup (Juni endYear)
+  // 3. Jika TP belum berjalan (today < startYear-07), gunakan bulan pembuka (Juli startYear)
+  let runningMonth = academicMonths.find(m => m.isCurrent);
+  if (!runningMonth) {
+    if (currentYearMonth > `${endYear}-06`) {
+      runningMonth = academicMonths[academicMonths.length - 1]; // Juni endYear
+    } else if (currentYearMonth < `${startYear}-07`) {
+      runningMonth = academicMonths[0]; // Juli startYear
+    } else {
+      runningMonth = academicMonths.find(m => m.monthNum === today.getMonth() + 1) || academicMonths[0];
+    }
+  }
+
+  const runningMonthData = periodicMonthlyStats.find(p => p.month.key === runningMonth.key) || periodicMonthlyStats[0];
+
+  return { academicMonths, periodicMonthlyStats, runningMonth, runningMonthData };
+}

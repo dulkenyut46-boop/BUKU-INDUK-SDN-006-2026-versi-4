@@ -84,6 +84,8 @@ interface MonthlyActiveStudentsSummaryCardProps {
   onSelectTingkatFilter?: (tingkat: string) => void;
   onEditStudent?: (student: Student, initialTab?: 'pribadi' | 'alamat' | 'ortu' | 'kesehatan' | 'masuk' | 'bantuan') => void;
   defaultCollapsed?: boolean;
+  selectedMonthKey?: string;
+  onSelectMonthKey?: (key: string) => void;
 }
 
 const NAMA_BULAN = [
@@ -108,6 +110,8 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
   onSelectTingkatFilter,
   onEditStudent,
   defaultCollapsed = false,
+  selectedMonthKey: propSelectedMonthKey,
+  onSelectMonthKey,
 }) => {
   // Collapsible state (persisted in localStorage)
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
@@ -218,14 +222,20 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
     return months;
   }, [startYear, endYear]);
 
-  // Selected Month: Default to current month if in the range, otherwise default to October or first month
-  const [selectedMonthKey, setSelectedMonthKey] = useState<string>(() => {
+  // Selected Month: Controlled from prop if provided, otherwise internal state
+  const [internalMonthKey, setInternalMonthKey] = useState<string>(() => {
     const current = academicMonths.find(m => m.isCurrent);
     if (current) return current.key;
     // Default to October (current local context) or July
     const oct = academicMonths.find(m => m.monthNum === 10);
     return oct ? oct.key : academicMonths[0]?.key || `${startYear}-07`;
   });
+
+  const selectedMonthKey = propSelectedMonthKey || internalMonthKey;
+  const setSelectedMonthKey = (newKey: string) => {
+    setInternalMonthKey(newKey);
+    onSelectMonthKey?.(newKey);
+  };
 
   const selectedMonthInfo = useMemo(() => {
     return academicMonths.find(m => m.key === selectedMonthKey) || academicMonths[0];
