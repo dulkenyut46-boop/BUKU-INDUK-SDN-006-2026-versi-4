@@ -50,7 +50,12 @@ import { cn, formatIndonesianDate } from '../../lib/utils';
 import { TabelDistribusiPeringkat } from '../analytics/TabelDistribusiPeringkat';
 import { EditTahunPelajaranModal } from '../modals/EditTahunPelajaranModal';
 import { MonthlyActiveStudentsSummaryCard } from '../common/MonthlyActiveStudentsSummaryCard';
-import { projectStudentsForAcademicYear, isKelas1Sampai6, getTingkatKelasNumber } from '../../utils/academicYearHelper';
+import { 
+  projectStudentsForAcademicYear, 
+  isKelas1Sampai6, 
+  getTingkatKelasNumber,
+  calculateMonthlyPeriodicStats 
+} from '../../utils/academicYearHelper';
 
 interface DashboardViewProps {
   setActiveTab: (tab: ActiveTab) => void;
@@ -84,18 +89,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [chartMode, setChartMode] = useState<'grouped' | 'stacked'>('grouped');
   const [isEditTPModalOpen, setIsEditTPModalOpen] = useState(false);
 
-  // Metrics calculation
-  const totalStudents = students.length;
-  const activeStudents = students.filter(s => s.status === 'Aktif');
-  const totalActive = activeStudents.length;
-  const totalMale = activeStudents.filter(s => s.jenisKelamin === 'L').length;
-  const totalFemale = activeStudents.filter(s => s.jenisKelamin === 'P').length;
-  const totalGraduated = students.filter(s => s.status === 'Lulus').length;
-  const totalMutated = students.filter(s => s.status === 'Mutasi Keluar').length;
-
   const projectedStudents = useMemo(() => {
     return projectStudentsForAcademicYear(students, activeTP, '2026/2027');
   }, [students, activeTP]);
+
+  // Statistik Bulanan & Periodik Siswa Aktif - Menjadikan bulan yang sedang berjalan sebagai acuan resmi
+  const { runningMonthData } = useMemo(() => {
+    return calculateMonthlyPeriodicStats(projectedStudents, activeTP);
+  }, [projectedStudents, activeTP]);
+
+  // Siswa Aktif di bulan berjalan (acuan Statistik Bulanan & Periodik Siswa Aktif)
+  const activeStudents = runningMonthData.akhirList;
+  const totalActive = runningMonthData.totalAkhir;
+  const totalMale = runningMonthData.totalAkhirL;
+  const totalFemale = runningMonthData.totalAkhirP;
+  const runningMonthLabel = runningMonthData.month.fullName;
+
+  // Metrics calculation arsip lainnya
+  const totalStudents = students.length;
+  const totalGraduated = students.filter(s => s.status === 'Lulus').length;
+  const totalMutated = students.filter(s => s.status === 'Mutasi Keluar').length;
 
   const availableClasses = useMemo(() => {
     const fromProfile = (schoolProfile.daftarKelas || []).filter(isKelas1Sampai6);
@@ -291,11 +304,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div 
           onClick={() => setActiveTab('active-students')}
           className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between cursor-pointer hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-md transition-all group"
-          title="Klik untuk melihat Data Siswa Aktif"
+          title={`Klik untuk melihat Data Siswa Aktif (Bulan berjalan: ${runningMonthLabel})`}
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider group-hover:text-blue-600 transition-colors">
-              Siswa Aktif Terdaftar
+              Siswa Aktif ({runningMonthLabel})
             </span>
             <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 flex items-center justify-center group-hover:bg-[#003399] group-hover:text-white transition-colors">
               <Users className="w-5 h-5" />

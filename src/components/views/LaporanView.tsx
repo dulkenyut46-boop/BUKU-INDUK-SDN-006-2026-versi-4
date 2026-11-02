@@ -38,6 +38,10 @@ import { ActiveTab } from '../layout/Sidebar';
 import { cn, formatIndonesianDate } from '../../lib/utils';
 import { Student, MutationRecord } from '../../types';
 import { downloadExcelTemplate } from '../../utils/excelHelper';
+import { 
+  projectStudentsForAcademicYear, 
+  calculateMonthlyPeriodicStats 
+} from '../../utils/academicYearHelper';
 
 interface LaporanViewProps {
   setActiveTab: (tab: ActiveTab) => void;
@@ -80,8 +84,17 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
   const [editNoSuratKematian, setEditNoSuratKematian] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  const activeTP = schoolProfile?.tahunPelajaranAktif || '2026/2027';
+  const projectedStudents = React.useMemo(() => {
+    return projectStudentsForAcademicYear(students, activeTP, '2026/2027');
+  }, [students, activeTP]);
+
+  const { runningMonthData } = React.useMemo(() => {
+    return calculateMonthlyPeriodicStats(projectedStudents, activeTP);
+  }, [projectedStudents, activeTP]);
+
   const totalSiswa = students.length;
-  const siswaAktif = students.filter(s => s.status === 'Aktif').length;
+  const siswaAktif = runningMonthData.totalAkhir;
   const siswaLulus = students.filter(s => s.status === 'Lulus').length;
   const siswaMutasi = students.filter(s => s.status === 'Mutasi Keluar').length;
   const siswaMeninggalList = students.filter(s => s.status === 'Meninggal');

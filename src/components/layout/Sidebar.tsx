@@ -35,7 +35,11 @@ import { useSchool } from '../../context/SchoolContext';
 import { cn } from '../../lib/utils';
 import { TutWuriHandayaniSDLogo } from '../../utils/logoHelper';
 import { EditLogoModal } from '../modals/EditLogoModal';
-import { isStudentMutasiMasuk } from '../../utils/academicYearHelper';
+import { 
+  isStudentMutasiMasuk,
+  projectStudentsForAcademicYear,
+  calculateMonthlyPeriodicStats
+} from '../../utils/academicYearHelper';
 
 export type ActiveTab = 
   | 'dashboard'
@@ -102,12 +106,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  const activeCount = students.filter(s => s.status === 'Aktif').length;
+  const activeTP = schoolProfile?.tahunPelajaranAktif || '2026/2027';
+
+  // Sinkronisasi Siswa Aktif pada Menu Utama berpedoman pada Statistik Bulanan di bulan yang sedang berjalan (running month)
+  const { activeCount, runningMonthLabel } = React.useMemo(() => {
+    const projected = projectStudentsForAcademicYear(students, activeTP, '2026/2027');
+    const { runningMonthData } = calculateMonthlyPeriodicStats(projected, activeTP);
+    return {
+      activeCount: runningMonthData.totalAkhir,
+      runningMonthLabel: runningMonthData.month.fullName,
+    };
+  }, [students, activeTP]);
+
   const teacherCount = adminUsers.length;
   const mutatedCount = students.filter(s => s.mutasi || s.status === 'Mutasi Keluar').length;
   const incomingMutatedCount = students.filter(isStudentMutasiMasuk).length;
 
-  const activeTP = schoolProfile?.tahunPelajaranAktif || '2026/2027';
   const bantuanCount = students.filter(s => {
     const isRecipient = Boolean(
       (s.penerimaBantuan && s.penerimaBantuan !== 'Tidak' && s.penerimaBantuan !== 'Bukan Penerima') ||
