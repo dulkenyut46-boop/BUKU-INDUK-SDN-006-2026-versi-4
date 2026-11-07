@@ -69,3 +69,72 @@ export const exportBukuIndukToPdf = async (options: BukuIndukPdfExportOptions): 
   // Trigger download in browser
   pdf.save(filename);
 };
+
+export interface MonthlyStatsPdfExportOptions {
+  element: HTMLElement;
+  monthName: string;
+  activeTP: string;
+  schoolName?: string;
+  orientation?: 'portrait' | 'landscape';
+}
+
+/**
+ * Helper to export the Monthly Active Students Count Report into a crisp official A4 PDF document.
+ */
+export const exportMonthlyStatsToPdf = async (options: MonthlyStatsPdfExportOptions): Promise<void> => {
+  const { element, monthName, activeTP, orientation = 'portrait' } = options;
+
+  if (!element) {
+    throw new Error('Elemen dokumen statistik bulanan tidak ditemukan.');
+  }
+
+  // Configuration for high-res crisp print capture
+  const canvasOptions = {
+    scale: 2, // 2x resolution for crisp high-DPI text rendering
+    useCORS: true,
+    allowTaint: true,
+    logging: false,
+    backgroundColor: '#ffffff',
+    windowWidth: orientation === 'landscape' ? 1400 : 1100,
+  };
+
+  const canvas = await html2canvas(element, canvasOptions);
+  const imgData = canvas.toDataURL('image/png', 1.0);
+
+  const pdfWidth = orientation === 'landscape' ? 297 : 210;
+  const pdfHeight = orientation === 'landscape' ? 210 : 297;
+
+  const pdf = new jsPDF({
+    orientation,
+    unit: 'mm',
+    format: 'a4',
+    compress: true,
+  });
+
+  const imgWidth = pdfWidth;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+  if (imgHeight <= pdfHeight) {
+    pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
+  } else {
+    // Multi-page handling if table or report exceeds one A4 page
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+    heightLeft -= pdfHeight;
+
+    while (heightLeft > 0) {
+      position = position - pdfHeight;
+      pdf.addPage('a4', orientation);
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= pdfHeight;
+    }
+  }
+
+  const cleanMonth = (monthName || 'Bulan').trim().replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const cleanTP = (activeTP || 'TP').trim().replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const filename = `Laporan_Statistik_Siswa_Aktif_${cleanTP}_${cleanMonth}.pdf`;
+
+  pdf.save(filename);
+};

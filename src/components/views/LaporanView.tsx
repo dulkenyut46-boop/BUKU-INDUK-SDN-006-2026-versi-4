@@ -40,8 +40,12 @@ import { Student, MutationRecord } from '../../types';
 import { downloadExcelTemplate } from '../../utils/excelHelper';
 import { 
   projectStudentsForAcademicYear, 
-  calculateMonthlyPeriodicStats 
+  calculateMonthlyPeriodicStats,
+  isKelas1Sampai6,
+  getTingkatKelasNumber
 } from '../../utils/academicYearHelper';
+import { MonthlyStatsPdfModal } from '../modals/MonthlyStatsPdfModal';
+
 
 interface LaporanViewProps {
   setActiveTab: (tab: ActiveTab) => void;
@@ -89,9 +93,26 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
     return projectStudentsForAcademicYear(students, activeTP, '2026/2027');
   }, [students, activeTP]);
 
-  const { runningMonthData } = React.useMemo(() => {
+  const { academicMonths, periodicMonthlyStats, runningMonthData } = React.useMemo(() => {
     return calculateMonthlyPeriodicStats(projectedStudents, activeTP);
   }, [projectedStudents, activeTP]);
+
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+
+  const availableClasses = React.useMemo(() => {
+    const fromProfile = (schoolProfile?.daftarKelas || []).filter(isKelas1Sampai6);
+    const fromStudents = students.map(s => s.kelasSekarang).filter(isKelas1Sampai6);
+    const baseList = fromProfile.length > 0 ? fromProfile : ['Kelas 1', 'Kelas 2', 'Kelas 3', 'Kelas 4', 'Kelas 5', 'Kelas 6'];
+    const combined = Array.from(new Set([...baseList, ...fromStudents]));
+
+    return combined.sort((a, b) => {
+      const tingkatA = getTingkatKelasNumber(a);
+      const tingkatB = getTingkatKelasNumber(b);
+      if (tingkatA !== tingkatB) return tingkatA - tingkatB;
+      return a.localeCompare(b, undefined, { numeric: true });
+    });
+  }, [schoolProfile?.daftarKelas, students]);
+
 
   const totalSiswa = students.length;
   const siswaAktif = runningMonthData.totalAkhir;
@@ -274,9 +295,24 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
       actionLabel: 'Buka Rekap Raport',
     },
     {
+      id: 'laporan-statistik-bulanan-pdf',
+      title: 'Laporan Rekapitulasi Siswa Aktif Bulanan (PDF)',
+      subtitle: 'Rekap Dinamika & Distribusi per Tingkat 1 - 6',
+      description: 'Dokumen rekapitulasi resmi bulanan berformat PDF siap cetak A4. Dilengkapi Kop Surat Sekolah, dinamika siswa (masuk, mutasi, meninggal), rincian jenis kelamin L/P per tingkat kelas I - VI, dan lembar tanda tangan.',
+      category: 'cetak',
+      icon: Printer,
+      iconBg: 'bg-emerald-50 dark:bg-emerald-950/60',
+      iconColor: 'text-emerald-600 dark:text-emerald-400',
+      badge: 'PDF Resmi Siap Cetak',
+      badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
+      actionLabel: 'Preview & Ekspor PDF',
+      onAction: () => setIsPdfModalOpen(true),
+    },
+    {
       id: 'buku-induk',
       targetTab: 'print-buku-induk',
       title: 'Cetak Lembar Buku Induk Resmi',
+
       subtitle: 'Format 2 Halaman Standar Kemdikbud',
       description: 'Dokumen arsip resmi lembar muka & belakang berisi biodata, kesehatan, orang tua, riwayat pendidikan & nilai akhir.',
       category: 'cetak',
@@ -1214,6 +1250,18 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
           </button>
         </div>
       )}
+
+      {/* Modal Ekspor & Cetak PDF Laporan Siswa Aktif Bulanan */}
+      <MonthlyStatsPdfModal
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        schoolProfile={schoolProfile}
+        activeTP={activeTP}
+        academicMonths={academicMonths}
+        periodicMonthlyStats={periodicMonthlyStats}
+        availableClasses={availableClasses}
+      />
     </div>
   );
 };
+

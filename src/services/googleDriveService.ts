@@ -321,11 +321,18 @@ export const signInWithGoogleDrive = async (): Promise<{ user: DriveUser; access
       notifySubscribers();
       return { user: cachedUser, accessToken: cachedAccessToken };
     } catch (gisError: any) {
-      console.warn('Percobaan GIS selesai dengan kendala, mencoba Firebase Auth:', gisError);
+      console.warn('Percobaan GIS selesai dengan kendala, memeriksa fallback:', gisError);
       
-      // If user specifically clicked Cancel / access_denied, rethrow without fallback
-      if (gisError?.message?.includes('ditolak oleh pengguna')) {
-        throw (gisError instanceof Error ? gisError : new Error(gisError?.message || 'Izin akses Google Drive ditolak oleh pengguna.'));
+      // If user specifically clicked Cancel / closed the popup, do not launch a second popup
+      const isUserClosed = 
+        gisError?.message?.includes('ditolak oleh pengguna') ||
+        gisError?.message?.includes('Popup window closed') ||
+        gisError?.message?.includes('popup_closed') ||
+        gisError?.message?.includes('closed by user') ||
+        gisError?.type === 'popup_closed';
+
+      if (isUserClosed) {
+        throw new Error('Jendela masuk Google ditutup oleh pengguna.');
       }
 
       // 2. Fallback method: Firebase Auth Popup
@@ -346,6 +353,14 @@ export const signInWithGoogleDrive = async (): Promise<{ user: DriveUser; access
         notifySubscribers();
         return { user: cachedUser, accessToken: cachedAccessToken };
       } catch (fbError: any) {
+        if (fbError?.code === 'auth/popup-closed-by-user') {
+          throw new Error('Jendela masuk Google ditutup oleh pengguna.');
+        }
+
+        if (fbError?.code === 'auth/popup-blocked') {
+          throw new Error('Jendela masuk diblokir oleh peramban. Harap izinkan jendela sembulan (pop-up) pada browser Anda lalu coba kembali.');
+        }
+
         // Handle unauthorized-domain error explicitly
         if (
           fbError?.code === 'auth/unauthorized-domain' ||
@@ -421,14 +436,31 @@ export const getDriveAccessToken = (): string | null => {
  * Set or refresh the cached token manually (e.g. for custom OAuth tokens or testing)
  */
 export const setDriveAccessToken = async (token: string | null, customUser?: DriveUser): Promise<void> => {
-  cachedAccessToken = token;
   if (token) {
+    // Test that the token is valid for Google Drive API before saving
+    try {
+      const testRes = await fetch('https://www.googleapis.com/drive/v3/files?pageSize=1', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!testRes.ok) {
+        const errJson = await testRes.json().catch(() => null);
+        throw new Error(errJson?.error?.message || 'Token tidak memiliki izin akses Google Drive atau telah kedaluwarsa.');
+      }
+    } catch (testErr: any) {
+      cachedAccessToken = null;
+      cachedUser = null;
+      notifySubscribers();
+      throw testErr;
+    }
+
+    cachedAccessToken = token;
     if (customUser) {
       cachedUser = customUser;
     } else {
       cachedUser = await fetchGoogleUserProfile(token);
     }
   } else {
+    cachedAccessToken = null;
     cachedUser = null;
   }
   notifySubscribers();
@@ -445,7 +477,7 @@ export const uploadBackupToGoogleDrive = async (params: {
 }): Promise<DriveBackupFile> => {
   const token = getDriveAccessToken();
   if (!token) {
-    throw new Error('Sesi Google Drive belum terhubung. Silakan login ke Google Drive terlebih dahulu.');
+    throw new Error('Sesi Google Drive belum terhubung. Silakan hubungkan akun Google Drive terlebih dahulu.');
   }
 
   const boundary = '-------BukuIndukDriveUploadBoundary' + Math.random().toString(36).substring(2);
@@ -484,6 +516,11 @@ export const uploadBackupToGoogleDrive = async (params: {
   );
 
   if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      cachedAccessToken = null;
+      cachedUser = null;
+      notifySubscribers();
+    }
     const errorData = await response.json().catch(() => null);
     throw new Error(
       errorData?.error?.message || 
@@ -524,6 +561,11 @@ export const listGoogleDriveBackups = async (): Promise<DriveBackupFile[]> => {
   });
 
   if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      cachedAccessToken = null;
+      cachedUser = null;
+      notifySubscribers();
+    }
     const errorData = await response.json().catch(() => null);
     throw new Error(
       errorData?.error?.message || 
@@ -557,6 +599,11 @@ export const downloadGoogleDriveBackupContent = async (fileId: string): Promise<
   });
 
   if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      cachedAccessToken = null;
+      cachedUser = null;
+      notifySubscribers();
+    }
     throw new Error(`Gagal mengunduh berkas cadangan dari Google Drive (Status: ${response.status})`);
   }
 
@@ -580,6 +627,11 @@ export const deleteGoogleDriveBackup = async (fileId: string): Promise<void> => 
   });
 
   if (!response.ok && response.status !== 204) {
+    if (response.status === 401 || response.status === 403) {
+      cachedAccessToken = null;
+      cachedUser = null;
+      notifySubscribers();
+    }
     const errorData = await response.json().catch(() => null);
     throw new Error(
       errorData?.error?.message || 

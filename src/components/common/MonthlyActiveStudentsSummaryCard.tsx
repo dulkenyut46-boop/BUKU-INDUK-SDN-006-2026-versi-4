@@ -32,13 +32,15 @@ import {
   ArrowRightLeft,
   CheckSquare,
   Square,
-  AlertTriangle
+  AlertTriangle,
+  Printer
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Student, SchoolProfile, Gender } from '../../types';
 import { cn, formatIndonesianDate } from '../../lib/utils';
 import { getAcademicYearStart, isKelas1Sampai6, getTingkatKelasNumber } from '../../utils/academicYearHelper';
 import { useSchool } from '../../context/SchoolContext';
+import { MonthlyStatsPdfModal } from '../modals/MonthlyStatsPdfModal';
 
 export interface AcademicMonthInfo {
   key: string; // YYYY-MM
@@ -131,6 +133,9 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
       return next;
     });
   };
+
+  // PDF Export Modal State
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   // View mode: 'detail-bulan' | 'matriks-periodik'
   const [viewMode, setViewMode] = useState<'detail-bulan' | 'matriks-periodik'>('detail-bulan');
@@ -939,6 +944,17 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
 
           <button
             type="button"
+            onClick={() => setIsPdfModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black transition-all shadow-xs cursor-pointer hover:scale-102"
+            title="Cetak & unduh laporan statistik siswa aktif bulanan lengkap dengan rekap tingkat kelas ke PDF"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Ekspor PDF</span>
+            <span className="sm:hidden">PDF</span>
+          </button>
+
+          <button
+            type="button"
             onClick={toggleCollapsed}
             className="flex items-center gap-1 px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-xl text-xs font-bold text-white transition-all cursor-pointer"
             title={isCollapsed ? "Buka panel ringkasan statistik bulanan" : "Tutup/Sembunyikan panel ringkasan"}
@@ -1289,9 +1305,20 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                       <BarChart2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                       <span>Rekapitulasi Total Siswa di Setiap Tingkat Kelas ({selectedMonthInfo.fullName})</span>
                     </h4>
-                    <span className="text-xs text-slate-500 font-medium">
-                      Total: <strong>{currentMonthData.totalAkhir}</strong> Siswa Aktif
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500 font-medium hidden sm:inline">
+                        Total: <strong>{currentMonthData.totalAkhir}</strong> Siswa Aktif
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsPdfModalOpen(true)}
+                        className="flex items-center gap-1.5 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                        title="Cetak & Unduh Laporan Rekapitulasi Tingkat Kelas ke PDF"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>Cetak Rekap PDF</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -2831,6 +2858,22 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
           </div>
         </div>
       )}
+
+      {/* Modal Ekspor & Cetak PDF Laporan Siswa Aktif Bulanan & Rekap Tingkat */}
+      <MonthlyStatsPdfModal
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        schoolProfile={schoolProfile}
+        activeTP={activeTP}
+        academicMonths={academicMonths}
+        periodicMonthlyStats={periodicMonthlyStats}
+        availableClasses={availableClasses}
+        initialSelectedMonthKey={selectedMonthKey}
+        onMonthChange={(newKey) => {
+          setSelectedMonthKey(newKey);
+        }}
+      />
     </div>
   );
 };
+
