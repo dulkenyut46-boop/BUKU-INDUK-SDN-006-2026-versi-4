@@ -226,8 +226,19 @@ export const MonthlyStatsPrintDocument: React.FC<MonthlyStatsPrintDocumentProps>
               </thead>
               <tbody>
                 {tingkatStats.map((t, idx) => {
-                  const rasioL = t.total > 0 ? Math.round((t.jmlL / t.total) * 100) : 0;
-                  const rasioP = t.total > 0 ? (100 - rasioL) : 0;
+                  const pre = monthData?.tingkatCounts?.[t.tingkat];
+                  const preTotal = pre?.total || 0;
+                  const preL = pre?.jmlL !== undefined ? pre?.jmlL : (pre?.l || 0);
+                  const preP = pre?.jmlP !== undefined ? pre?.jmlP : (pre?.p || 0);
+
+                  const countTotal = t.total > 0 ? t.total : preTotal;
+                  const countL = t.total > 0 ? t.jmlL : preL;
+                  const countP = t.total > 0 ? t.jmlP : preP;
+                  const totalAkhir = monthData?.totalAkhir || 1;
+                  const persentase = totalAkhir > 0 ? Math.round((countTotal / totalAkhir) * 100) : 0;
+                  const rasioL = countTotal > 0 ? Math.round((countL / countTotal) * 100) : 0;
+                  const rasioP = countTotal > 0 ? (100 - rasioL) : 0;
+
                   return (
                     <tr key={t.tingkat} className={idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}>
                       <td className="border border-slate-400 py-1 px-2 font-mono">{t.tingkat}</td>
@@ -237,13 +248,13 @@ export const MonthlyStatsPrintDocument: React.FC<MonthlyStatsPrintDocumentProps>
                       <td className="border border-slate-400 py-1 px-3 text-left text-slate-700 text-[9px]">
                         {t.rombels.length > 0 ? t.rombels.join(', ') : `Kelas ${t.tingkat}`}
                       </td>
-                      <td className="border border-slate-400 py-1 px-2 font-mono">{t.jmlL}</td>
-                      <td className="border border-slate-400 py-1 px-2 font-mono">{t.jmlP}</td>
+                      <td className="border border-slate-400 py-1 px-2 font-mono">{countL}</td>
+                      <td className="border border-slate-400 py-1 px-2 font-mono">{countP}</td>
                       <td className="border border-slate-400 py-1 px-2 font-mono font-bold bg-slate-50/80">
-                        {t.total}
+                        {countTotal}
                       </td>
                       <td className="border border-slate-400 py-1 px-2 font-mono text-[9px]">
-                        {t.persentase}%
+                        {persentase}%
                       </td>
                       <td className="border border-slate-400 py-1 px-2 text-[8.5px] text-slate-600 font-mono">
                         {rasioL}% : {rasioP}%

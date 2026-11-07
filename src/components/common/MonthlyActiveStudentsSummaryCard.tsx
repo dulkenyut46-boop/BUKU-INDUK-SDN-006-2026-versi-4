@@ -463,21 +463,26 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
       runningActiveList = akhirList;
 
       // Total Siswa Aktif per Tingkat (1 s/d 6) in this month
-      const tingkatCounts: Record<number, { total: number; l: number; p: number }> = {
-        1: { total: 0, l: 0, p: 0 },
-        2: { total: 0, l: 0, p: 0 },
-        3: { total: 0, l: 0, p: 0 },
-        4: { total: 0, l: 0, p: 0 },
-        5: { total: 0, l: 0, p: 0 },
-        6: { total: 0, l: 0, p: 0 },
+      const tingkatCounts: Record<number, { total: number; l: number; p: number; jmlL: number; jmlP: number }> = {
+        1: { total: 0, l: 0, p: 0, jmlL: 0, jmlP: 0 },
+        2: { total: 0, l: 0, p: 0, jmlL: 0, jmlP: 0 },
+        3: { total: 0, l: 0, p: 0, jmlL: 0, jmlP: 0 },
+        4: { total: 0, l: 0, p: 0, jmlL: 0, jmlP: 0 },
+        5: { total: 0, l: 0, p: 0, jmlL: 0, jmlP: 0 },
+        6: { total: 0, l: 0, p: 0, jmlL: 0, jmlP: 0 },
       };
 
       akhirList.forEach(s => {
-        const t = getTingkatKelasNumber(s.kelasSekarang);
+        const t = (s as any).projectedTingkat || getTingkatKelasNumber(s.kelasSekarang) || getTingkatKelasNumber((s as any).projectedRombel);
         if (t >= 1 && t <= 6) {
           tingkatCounts[t].total += 1;
-          if (s.jenisKelamin === 'L') tingkatCounts[t].l += 1;
-          else tingkatCounts[t].p += 1;
+          if (s.jenisKelamin === 'L') {
+            tingkatCounts[t].l += 1;
+            tingkatCounts[t].jmlL += 1;
+          } else {
+            tingkatCounts[t].p += 1;
+            tingkatCounts[t].jmlP += 1;
+          }
         }
       });
 
@@ -776,7 +781,11 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
     const monthStudents = currentMonthData.akhirList;
     const totalAll = monthStudents.length;
     return [1, 2, 3, 4, 5, 6].map(tingkat => {
-      const inTingkat = monthStudents.filter(s => getTingkatKelasNumber(s.kelasSekarang) === tingkat);
+      const inTingkat = monthStudents.filter(s => 
+        (s as any).projectedTingkat === tingkat || 
+        getTingkatKelasNumber(s.kelasSekarang) === tingkat || 
+        getTingkatKelasNumber((s as any).projectedRombel) === tingkat
+      );
       const jmlL = inTingkat.filter(s => s.jenisKelamin === 'L').length;
       const jmlP = inTingkat.filter(s => s.jenisKelamin === 'P').length;
       const count = inTingkat.length;
@@ -2869,6 +2878,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
         periodicMonthlyStats={periodicMonthlyStats}
         availableClasses={availableClasses}
         initialSelectedMonthKey={selectedMonthKey}
+        initialTingkatStats={tingkatStats}
         onMonthChange={(newKey) => {
           setSelectedMonthKey(newKey);
         }}

@@ -93,7 +93,7 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
     return projectStudentsForAcademicYear(students, activeTP, '2026/2027');
   }, [students, activeTP]);
 
-  const { academicMonths, periodicMonthlyStats, runningMonthData } = React.useMemo(() => {
+  const { academicMonths, periodicMonthlyStats, runningMonth, runningMonthData } = React.useMemo(() => {
     return calculateMonthlyPeriodicStats(projectedStudents, activeTP);
   }, [projectedStudents, activeTP]);
 
@@ -1260,6 +1260,7 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
         academicMonths={academicMonths}
         periodicMonthlyStats={periodicMonthlyStats}
         availableClasses={availableClasses}
+        initialSelectedMonthKey={runningMonth?.key}
       />
     </div>
   );

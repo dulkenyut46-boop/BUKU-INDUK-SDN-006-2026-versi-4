@@ -26,6 +26,7 @@ import {
   MonthlyStatsPrintSettings 
 } from '../common/MonthlyStatsPrintDocument';
 import { exportMonthlyStatsToPdf } from '../../utils/pdfExportHelper';
+import { getTingkatKelasNumber } from '../../utils/academicYearHelper';
 
 interface MonthlyStatsPdfModalProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ interface MonthlyStatsPdfModalProps {
   periodicMonthlyStats: any[];
   availableClasses: string[];
   initialSelectedMonthKey?: string;
+  initialTingkatStats?: MonthlyTingkatStat[];
   onMonthChange?: (key: string) => void;
 }
 
@@ -48,13 +50,14 @@ export const MonthlyStatsPdfModal: React.FC<MonthlyStatsPdfModalProps> = ({
   periodicMonthlyStats,
   availableClasses,
   initialSelectedMonthKey,
+  initialTingkatStats,
   onMonthChange,
 }) => {
   const documentPrintRef = useRef<HTMLDivElement>(null);
 
   // Selected month within modal
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>(() => {
-    return initialSelectedMonthKey || academicMonths[0]?.key || '2026-11';
+    return initialSelectedMonthKey || academicMonths.find(m => m.isCurrent)?.key || academicMonths[0]?.key || '2026-11';
   });
 
   // Keep in sync with initialSelectedMonthKey when modal opens
@@ -96,21 +99,42 @@ export const MonthlyStatsPdfModal: React.FC<MonthlyStatsPdfModalProps> = ({
   // Grade level breakdown calculation (Tingkat 1 - 6)
   const tingkatStats: MonthlyTingkatStat[] = useMemo(() => {
     if (!currentMonthData) return [];
+
+    // If initialTingkatStats was provided and we are on the initial selected month, use it directly if valid
+    const isInitialMonth = selectedMonthKey === (initialSelectedMonthKey || academicMonths.find(m => m.isCurrent)?.key || academicMonths[0]?.key);
+    if (isInitialMonth && initialTingkatStats && initialTingkatStats.some(t => t.total > 0)) {
+      return initialTingkatStats;
+    }
+
     const monthStudents = currentMonthData.akhirList || [];
-    const totalAll = monthStudents.length;
+    const totalAll = currentMonthData.totalAkhir || monthStudents.length || 0;
 
     return [1, 2, 3, 4, 5, 6].map(tingkat => {
+      // 1. Direct filtering using robust level extractor
       const inTingkat = monthStudents.filter((s: any) => {
-        const cls = (s.kelasSekarang || '').toLowerCase();
-        return cls === `kelas ${tingkat}` || cls.startsWith(`kelas ${tingkat} `) || cls.startsWith(`${tingkat}`);
+        if (!s) return false;
+        if (s.projectedTingkat === tingkat) return true;
+        const t1 = getTingkatKelasNumber(s.kelasSekarang);
+        if (t1 === tingkat) return true;
+        const t2 = getTingkatKelasNumber(s.projectedRombel);
+        if (t2 === tingkat) return true;
+        return false;
       });
-      const jmlL = inTingkat.filter((s: any) => s.jenisKelamin === 'L').length;
-      const jmlP = inTingkat.filter((s: any) => s.jenisKelamin === 'P').length;
-      const count = inTingkat.length;
-      const rombels = availableClasses.filter(c => {
-        const cls = c.toLowerCase();
-        return cls === `kelas ${tingkat}` || cls.startsWith(`kelas ${tingkat} `);
-      });
+
+      let jmlL = inTingkat.filter((s: any) => s.jenisKelamin === 'L').length;
+      let jmlP = inTingkat.filter((s: any) => s.jenisKelamin === 'P').length;
+      let count = inTingkat.length;
+
+      // 2. Fallback to precalculated tingkatCounts on currentMonthData if direct list had 0
+      const precomputed = currentMonthData.tingkatCounts?.[tingkat];
+      if (count === 0 && precomputed && precomputed.total > 0) {
+        count = precomputed.total;
+        jmlL = precomputed.jmlL !== undefined ? precomputed.jmlL : (precomputed.l || 0);
+        jmlP = precomputed.jmlP !== undefined ? precomputed.jmlP : (precomputed.p || 0);
+      }
+
+      // Filter matching rombels for this grade level
+      const rombels = availableClasses.filter(c => getTingkatKelasNumber(c) === tingkat);
 
       return {
         tingkat,
@@ -122,21 +146,26 @@ export const MonthlyStatsPdfModal: React.FC<MonthlyStatsPdfModalProps> = ({
         rombels,
       };
     });
-  }, [currentMonthData, availableClasses]);
+  }, [currentMonthData, availableClasses, selectedMonthKey, initialSelectedMonthKey, initialTingkatStats, academicMonths]);
 
   // Rombel stats calculation
   const rombelStats: MonthlyRombelStat[] = useMemo(() => {
     if (!currentMonthData) return [];
     const monthStudents = currentMonthData.akhirList || [];
-    const total = monthStudents.length;
+    const total = currentMonthData.totalAkhir || monthStudents.length || 0;
 
     return availableClasses.map(rombel => {
-      const inRombel = monthStudents.filter((s: any) => s.kelasSekarang === rombel);
+      const inRombel = monthStudents.filter((s: any) => {
+        if (!s) return false;
+        if (s.kelasSekarang === rombel || s.projectedRombel === rombel) return true;
+        const sCls = String(s.kelasSekarang || s.projectedRombel || '').trim().toLowerCase();
+        const rCls = String(rombel).trim().toLowerCase();
+        return sCls === rCls;
+      });
       const jmlL = inRombel.filter((s: any) => s.jenisKelamin === 'L').length;
       const jmlP = inRombel.filter((s: any) => s.jenisKelamin === 'P').length;
       const rombelTotal = inRombel.length;
-      const match = rombel.match(/\d+/);
-      const tingkat = match ? parseInt(match[0], 10) : 1;
+      const tingkat = getTingkatKelasNumber(rombel);
       const wali = schoolProfile.waliKelasMap?.[rombel]?.nama;
 
       return {
