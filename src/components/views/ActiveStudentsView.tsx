@@ -4194,21 +4194,23 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
         />
       )}
 
-      {/* Dokumen Tercetak Khusus Mode Print (@media print - Sesuai Kebutuhan & Pengaturan) */}
-      <ActiveStudentsPrintDocument
-        settings={currentPrintSettings}
-        schoolProfile={schoolProfile}
-        activeTP={activeTP}
-        activeSemester={activeSemester}
-        projectedStudents={projectedStudents}
-        rombelStats={rombelStats}
-        availableClasses={availableClasses}
-        adminUsers={adminUsers}
-        currentSelectedTingkat={selectedTingkat}
-        currentSelectedRombel={selectedRombel}
-        currentSelectedStatus={selectedStatus}
-        mode={printModalMode}
-      />
+      {/* Dokumen Tercetak Khusus Mode Print (@media print - Hanya saat Modal Cetak Siswa Aktif Terbuka) */}
+      {isPrintModalOpen && (
+        <ActiveStudentsPrintDocument
+          settings={currentPrintSettings}
+          schoolProfile={schoolProfile}
+          activeTP={activeTP}
+          activeSemester={activeSemester}
+          projectedStudents={projectedStudents}
+          rombelStats={rombelStats}
+          availableClasses={availableClasses}
+          adminUsers={adminUsers}
+          currentSelectedTingkat={selectedTingkat}
+          currentSelectedRombel={selectedRombel}
+          currentSelectedStatus={selectedStatus}
+          mode={printModalMode}
+        />
+      )}
 
       {/* Modal Pilihan Pengaturan Cetak (Daftar Siswa Aktif & Tabel Siswa per Rombel) */}
       {isPrintModalOpen && (

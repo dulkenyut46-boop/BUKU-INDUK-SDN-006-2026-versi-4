@@ -21,8 +21,8 @@
     filter: none !important;
   }
 
-  /* 2. Hide ALL non-printable UI elements: navigation, sidebars, topbars, toolbars,
-     modal overlays, dialogs, drawers, and fixed dark backdrops */
+  /* 2. Hide non-printable UI elements: navigation, sidebars, topbars, toolbars,
+     and elements explicitly marked no-print / print:hidden */
   #topbar,
   #sidebar,
   nav,
@@ -32,13 +32,6 @@
   .no-print,
   .print-hidden,
   [class*="print:hidden"],
-  [class*="fixed inset-0"],
-  [class*="backdrop-blur"],
-  [class*="bg-slate-900/"],
-  [class*="bg-slate-950/"],
-  [class*="bg-black/"],
-  [role="dialog"],
-  [aria-modal="true"],
   .modal-backdrop {
     display: none !important;
     visibility: hidden !important;
@@ -134,6 +127,19 @@
   tr, .avoid-break {
     page-break-inside: avoid;
     break-inside: avoid;
+  }
+
+  /* 7. Laporan Statistik Bulanan Print Rules */
+  #monthly-stats-print-document {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
   }
 }
 

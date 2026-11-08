@@ -27,6 +27,7 @@ import {
 } from '../common/MonthlyStatsPrintDocument';
 import { exportMonthlyStatsToPdf } from '../../utils/pdfExportHelper';
 import { getTingkatKelasNumber } from '../../utils/academicYearHelper';
+import { printElementIsolated } from '../../utils/printHelper';
 
 interface MonthlyStatsPdfModalProps {
   isOpen: boolean;
@@ -218,16 +219,39 @@ export const MonthlyStatsPdfModal: React.FC<MonthlyStatsPdfModalProps> = ({
 
 
   const handleDirectPrint = () => {
-    window.print();
+    if (documentPrintRef.current) {
+      printElementIsolated(documentPrintRef.current, {
+        title: `Laporan_Statistik_Siswa_Aktif_${activeTP.replace('/', '_')}_${selectedMonthInfo.monthName}`,
+        orientation: settings.orientation,
+        paperSize: 'A4',
+      });
+    } else {
+      window.print();
+    }
   };
+
+  // Tangkap pintasan Ctrl+P / Cmd+P saat modal terbuka agar mencetak dokumen secara terisolasi tanpa tumpang tindih
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        handleDirectPrint();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, selectedMonthInfo, activeTP, settings.orientation]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto no-print">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-6xl max-h-[96vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto print:static print:inset-auto print:p-0 print:m-0 print:bg-white print:overflow-visible print:block">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-6xl max-h-[96vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 print:border-none print:shadow-none print:max-w-none print:max-h-none print:rounded-none print:overflow-visible print:block">
         {/* Modal Top Header */}
-        <div className="px-5 py-3.5 bg-gradient-to-r from-[#002b80] via-[#003da6] to-indigo-900 text-white flex items-center justify-between shrink-0">
+        <div className="px-5 py-3.5 bg-gradient-to-r from-[#002b80] via-[#003da6] to-indigo-900 text-white flex items-center justify-between shrink-0 no-print print:hidden">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black shadow-md">
               <Printer className="w-5 h-5" />
@@ -255,9 +279,9 @@ export const MonthlyStatsPdfModal: React.FC<MonthlyStatsPdfModalProps> = ({
         </div>
 
         {/* Modal Body: Left Controls + Right Live Document Preview */}
-        <div className="flex-1 overflow-y-auto flex flex-col lg:flex-row min-h-0 bg-slate-100 dark:bg-slate-950/80">
+        <div className="flex-1 overflow-y-auto flex flex-col lg:flex-row min-h-0 bg-slate-100 dark:bg-slate-950/80 print:bg-white print:overflow-visible print:block">
           {/* Left Settings Panel */}
-          <div className="w-full lg:w-80 shrink-0 p-4 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4 overflow-y-auto">
+          <div className="w-full lg:w-80 shrink-0 p-4 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4 overflow-y-auto no-print print:hidden">
             {/* 1. Pilih Bulan Laporan */}
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
@@ -466,8 +490,8 @@ export const MonthlyStatsPdfModal: React.FC<MonthlyStatsPdfModalProps> = ({
           </div>
 
           {/* Right Live Preview Area */}
-          <div className="flex-1 p-4 md:p-6 overflow-y-auto flex flex-col items-center justify-start min-h-[500px]">
-            <div className="w-full max-w-4xl flex items-center justify-between mb-3 text-xs text-slate-600 dark:text-slate-400">
+          <div className="flex-1 p-4 md:p-6 overflow-y-auto flex flex-col items-center justify-start min-h-[500px] print:p-0 print:m-0 print:overflow-visible print:block">
+            <div className="w-full max-w-4xl flex items-center justify-between mb-3 text-xs text-slate-600 dark:text-slate-400 no-print print:hidden">
               <span className="font-bold flex items-center gap-1.5">
                 <Eye className="w-4 h-4 text-blue-600" />
                 <span>Pratinjau Lembar Cetak Dokumen Resmi (WYSIWYG)</span>
@@ -479,14 +503,14 @@ export const MonthlyStatsPdfModal: React.FC<MonthlyStatsPdfModalProps> = ({
 
             {/* Notification alert banner */}
             {exportSuccessMessage && (
-              <div className="w-full max-w-4xl mb-3 p-3 rounded-xl bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+              <div className="w-full max-w-4xl mb-3 p-3 rounded-xl bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-bold flex items-center gap-2 animate-in fade-in no-print print:hidden">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>{exportSuccessMessage}</span>
               </div>
             )}
 
             {exportErrorMessage && (
-              <div className="w-full max-w-4xl mb-3 p-3 rounded-xl bg-rose-50 text-rose-900 border border-rose-200 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+              <div className="w-full max-w-4xl mb-3 p-3 rounded-xl bg-rose-50 text-rose-900 border border-rose-200 text-xs font-bold flex items-center gap-2 animate-in fade-in no-print print:hidden">
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                 <span>{exportErrorMessage}</span>
               </div>
@@ -494,8 +518,8 @@ export const MonthlyStatsPdfModal: React.FC<MonthlyStatsPdfModalProps> = ({
 
 
             {/* Document wrapper */}
-            <div className="w-full overflow-x-auto pb-6 flex justify-center">
-              <div className="shadow-xl rounded-sm border border-slate-300 bg-white shrink-0">
+            <div className="w-full overflow-x-auto pb-6 flex justify-center print:p-0 print:m-0 print:overflow-visible print:block">
+              <div className="shadow-xl rounded-sm border border-slate-300 bg-white shrink-0 print:shadow-none print:border-none print:m-0 print:p-0 print:w-full">
                 <MonthlyStatsPrintDocument
                   documentRef={documentPrintRef}
                   schoolProfile={schoolProfile}
@@ -512,7 +536,7 @@ export const MonthlyStatsPdfModal: React.FC<MonthlyStatsPdfModalProps> = ({
         </div>
 
         {/* Modal Bottom Action Footer */}
-        <div className="px-5 py-3.5 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+        <div className="px-5 py-3.5 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 no-print print:hidden">
           <div className="text-xs text-slate-500 dark:text-slate-400 text-center sm:text-left">
             <span>Mencetak dokumen resmi rekapitulasi siswa aktif </span>
             <strong className="text-slate-800 dark:text-slate-200">{selectedMonthInfo?.fullName}</strong>
