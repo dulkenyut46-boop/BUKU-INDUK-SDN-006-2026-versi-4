@@ -16,9 +16,9 @@ export interface MonthlyStatsPrintSettings {
   titimangsaTanggal: string;
   namaKepalaSekolah: string;
   nipKepalaSekolah: string;
-  namaPetugas: string;
-  nipPetugas: string;
-  jabatanPetugas: string;
+  namaPetugas?: string;
+  nipPetugas?: string;
+  jabatanPetugas?: string;
 }
 
 interface MonthlyStatsPrintDocumentProps {
@@ -391,34 +391,21 @@ export const MonthlyStatsPrintDocument: React.FC<MonthlyStatsPrintDocumentProps>
           </div>
         )}
 
-        {/* 6. Official Signatures Block (Tanda Tangan Resmi) */}
+        {/* 6. Official Signatures Block (Tanda Tangan Resmi - Hanya Kepala Sekolah) */}
         {settings.showSignatures && (
           <div className="pt-4 mt-4 border-t border-slate-300 break-inside-avoid">
-            <div className="flex justify-between items-start text-center text-[10px] leading-snug">
-              {/* Petugas Pengelola / Wali Kelas */}
-              <div className="w-64 flex flex-col items-center">
-                <span>Mengetahui / Memeriksa,</span>
-                <span className="font-bold">{settings.jabatanPetugas || 'Petugas Pengelola Data / TU'}</span>
-                <div className="h-16" />
-                <span className="font-extrabold underline uppercase tracking-wide">
-                  {settings.namaPetugas || 'Petugas Administrasi'}
-                </span>
-                <span className="font-mono text-[9px] text-slate-700">
-                  NIP. {settings.nipPetugas || '-'}
-                </span>
-              </div>
-
+            <div className="flex justify-end items-start text-[10px] leading-snug">
               {/* Titimangsa & Kepala Sekolah */}
-              <div className="w-64 flex flex-col items-center">
+              <div className="w-64 sm:w-72 flex flex-col items-center text-center">
                 <span>
                   {settings.titimangsaKota || schoolProfile.kabupatenKota || 'Kuantan Singingi'}, {settings.titimangsaTanggal || formatIndonesianDate(new Date().toISOString().split('T')[0])}
                 </span>
-                <span className="font-bold">Kepala Sekolah</span>
+                <span className="font-bold mt-0.5">Kepala Sekolah</span>
                 <div className="h-16" />
                 <span className="font-extrabold underline uppercase tracking-wide">
                   {settings.namaKepalaSekolah || schoolProfile.namaKepalaSekolah || 'Kepala Sekolah'}
                 </span>
-                <span className="font-mono text-[9px] text-slate-700">
+                <span className="font-mono text-[9px] text-slate-700 mt-0.5">
                   NIP. {settings.nipKepalaSekolah || schoolProfile.nipKepalaSekolah || '-'}
                 </span>
               </div>

@@ -81,9 +81,6 @@ export const MonthlyStatsPdfModal: React.FC<MonthlyStatsPdfModalProps> = ({
     titimangsaTanggal: formatIndonesianDate(new Date().toISOString().split('T')[0]),
     namaKepalaSekolah: schoolProfile.namaKepalaSekolah || 'Kepala Sekolah',
     nipKepalaSekolah: schoolProfile.nipKepalaSekolah || '-',
-    namaPetugas: 'Petugas Pengelola Buku Induk',
-    nipPetugas: '-',
-    jabatanPetugas: 'Pengelola Data / Petugas Administrasi',
   });
 
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -438,15 +435,15 @@ export const MonthlyStatsPdfModal: React.FC<MonthlyStatsPdfModalProps> = ({
                   onChange={(e) => setSettings(s => ({ ...s, showSignatures: e.target.checked }))}
                   className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                 />
-                <span>Kolom Tanda Tangan & Titimangsa</span>
+                <span>Kolom Tanda Tangan Kepala Sekolah & Titimangsa</span>
               </label>
             </div>
 
-            {/* 4. Edit Nama & NIP Penandatangan */}
+            {/* 4. Edit Nama & NIP Penandatangan (Kepala Sekolah) */}
             {settings.showSignatures && (
               <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800 text-xs">
                 <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase">
-                  Data Penandatangan
+                  Data Penandatangan (Kepala Sekolah)
                 </label>
                 <div>
                   <span className="text-[10px] text-slate-500 block">Nama Kepala Sekolah:</span>
