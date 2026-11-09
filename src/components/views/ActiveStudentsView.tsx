@@ -16,6 +16,7 @@ import {
   BookOpen, 
   ChevronLeft, 
   ChevronRight, 
+  ChevronDown,
   Calendar, 
   Building2, 
   CheckCircle2, 
@@ -1054,169 +1055,217 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            {/* Template Rombel Dropdown */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setIsTemplateDropdownOpen((prev) => !prev)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-white/15 hover:bg-white/25 border border-white/25 rounded-xl text-xs font-bold text-white transition-all shadow-sm cursor-pointer"
-                title="Unduh Template Excel untuk merubah rombel / kelas siswa aktif"
-              >
-                <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
-                <span>Template Rombel</span>
-              </button>
-
-              {isTemplateDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-2 z-30 animate-fade-in text-slate-800 dark:text-slate-200">
-                  <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800">
-                    <p className="text-xs font-black text-[#003399] dark:text-blue-400">
-                      Format Template Excel (.XLSX)
-                    </p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">
-                      Khusus untuk merubah rombel siswa aktif Kelas 1 s/d 6
-                    </p>
-                  </div>
-
-                  <div className="p-1 space-y-1">
-                    <button
-                      type="button"
-                      onClick={handleDownloadPopulatedTemplate}
-                      className="w-full text-left p-2.5 rounded-xl hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors flex items-start gap-2.5 cursor-pointer group"
-                    >
-                      <Download className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0 group-hover:scale-110 transition-transform" />
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-xs font-bold text-slate-900 dark:text-white">
-                            Terisi Siswa Aktif ({activeStudents.length} Siswa)
-                          </p>
-                          <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-emerald-500 text-white rounded">
-                            Disarankan
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
-                          NIS, NISN, & Nama otomatis terisi. Cukup isi kolom <strong>Rombel Baru</strong>.
-                        </p>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleDownloadBlankTemplate}
-                      className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-start gap-2.5 cursor-pointer group"
-                    >
-                      <FileSpreadsheet className="w-4 h-4 text-slate-500 mt-0.5 shrink-0 group-hover:scale-110 transition-transform" />
-                      <div>
-                        <p className="text-xs font-bold text-slate-900 dark:text-white">
-                          Template Kosong (Contoh)
-                        </p>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
-                          Template format kosong dengan contoh pengisian & lembar petunjuk.
-                        </p>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Menu "Simpan" / Pengunci Rombel di Tahun Ajaran Aktif */}
+          {/* Header Action Menu Hub (Tertata Rapi & Menarik) */}
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            {/* Grup 1: Manajemen & Kunci Rombel */}
             {currentRole !== 'umum' && (
-              isCurrentTPLocked ? (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/90 text-white rounded-xl border border-emerald-300/40 shadow-md">
-                  <ShieldCheck className="w-4 h-4 text-emerald-200 shrink-0" />
-                  <div className="leading-tight">
-                    <div className="flex items-center gap-1 font-black text-[11px] text-white">
-                      <Lock className="w-3 h-3 text-amber-300" />
-                      <span>Rombel Terkunci</span>
+              <div className="flex items-center gap-1.5 p-1 bg-white/10 dark:bg-slate-900/40 backdrop-blur-md rounded-2xl border border-white/20 shadow-xs">
+                {/* Status Kunci Rombel / Tombol Simpan Rombel */}
+                {isCurrentTPLocked ? (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/90 text-white rounded-xl border border-emerald-300/40 shadow-xs">
+                    <ShieldCheck className="w-4 h-4 text-emerald-200 shrink-0" />
+                    <div className="leading-tight">
+                      <div className="flex items-center gap-1 font-black text-[11px] text-white">
+                        <Lock className="w-3 h-3 text-amber-300" />
+                        <span>Rombel Terkunci</span>
+                      </div>
+                      <span className="text-[9.5px] text-emerald-100 font-mono">
+                        TP {activeTP}
+                      </span>
                     </div>
-                    <span className="text-[9.5px] text-emerald-100 font-mono">
-                      TP {activeTP}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={handleUnlockRombel}
+                      className="ml-1 px-2 py-0.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-[10px] font-extrabold transition-all cursor-pointer shadow-xs active:scale-95"
+                      title="Buka kunci untuk mengedit rombel siswa kembali"
+                    >
+                      Buka Kunci
+                    </button>
                   </div>
+                ) : (
                   <button
                     type="button"
-                    onClick={handleUnlockRombel}
-                    className="ml-1 px-2 py-0.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-[10px] font-extrabold transition-all cursor-pointer shadow-xs"
-                    title="Buka kunci untuk mengedit rombel siswa kembali"
+                    onClick={() => setIsSaveLockModalOpen(true)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all shadow-sm cursor-pointer hover:shadow-md active:scale-95",
+                      hasDraftEdits
+                        ? "bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-slate-950 ring-2 ring-white/60 animate-pulse"
+                        : "bg-emerald-400 hover:bg-emerald-300 text-slate-950"
+                    )}
+                    title="Simpan & kunci hasil rombel siswa untuk Tahun Pelajaran aktif ini ke Buku Induk"
                   >
-                    Buka Kunci
+                    <Save className="w-4 h-4 text-slate-950" />
+                    <span>Simpan Rombel</span>
+                    {hasDraftEdits && (
+                      <span className="px-1.5 py-0.2 rounded-full bg-slate-950 text-amber-300 text-[10px] font-black">
+                        {draftEditsCount}
+                      </span>
+                    )}
                   </button>
-                </div>
-              ) : (
+                )}
+
+                {/* Kelola Pilihan Rombel */}
                 <button
                   type="button"
-                  onClick={() => setIsSaveLockModalOpen(true)}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-md cursor-pointer hover:shadow-lg active:scale-98",
-                    hasDraftEdits
-                      ? "bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-slate-950 ring-2 ring-white/60 animate-pulse"
-                      : "bg-emerald-400 hover:bg-emerald-300 text-slate-950"
-                  )}
-                  title="Simpan & kunci hasil rombel siswa untuk Tahun Pelajaran aktif ini ke Buku Induk"
+                  onClick={() => setIsManageClassesOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all cursor-pointer hover:shadow-xs active:scale-95"
+                  title="Kelola & edit daftar pilihan kelas/rombel sekolah"
                 >
-                  <Save className="w-4 h-4 text-slate-950" />
-                  <span>Simpan Rombel</span>
-                  {hasDraftEdits && (
-                    <span className="px-1.5 py-0.2 rounded-full bg-slate-950 text-amber-300 text-[10px] font-black">
-                      {draftEditsCount}
-                    </span>
-                  )}
+                  <Layers className="w-4 h-4 text-amber-300" />
+                  <span>Kelola Rombel</span>
                 </button>
-              )
+              </div>
             )}
 
-            {/* Impor Rombel Excel Button */}
-            {currentRole !== 'umum' && (
+            {/* Grup 2: Olah Data & Excel Hub */}
+            <div className="flex items-center gap-1.5 p-1 bg-white/10 dark:bg-slate-900/40 backdrop-blur-md rounded-2xl border border-white/20 shadow-xs">
+              {/* Unduh Excel Rombel (Wali Kelas) */}
               <button
                 type="button"
-                onClick={() => setIsImportRombelModalOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-400 hover:bg-emerald-300 text-slate-950 rounded-xl text-xs font-black transition-all shadow-md cursor-pointer hover:shadow-lg active:scale-98"
-                title="Impor berkas Excel (.xlsx) untuk merubah rombel siswa secara massal"
+                onClick={() => setIsDownloadRombelModalOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-400 hover:bg-emerald-300 text-slate-950 rounded-xl text-xs font-black transition-all shadow-sm cursor-pointer hover:shadow-md active:scale-95"
+                title="Unduh data daftar siswa per rombel/kelas ke dalam format .xlsx untuk guru wali kelas"
               >
-                <Upload className="w-4 h-4 text-slate-950" />
-                <span>Impor Rombel Excel</span>
+                <FileSpreadsheet className="w-4 h-4 text-slate-950" />
+                <span>Unduh Excel Rombel</span>
               </button>
-            )}
 
-            {/* Kelola Pilihan Rombel */}
-            {currentRole !== 'umum' && (
+              {/* Menu Dropdown Olah Excel & Template */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsTemplateDropdownOpen((prev) => !prev)}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-white/15 hover:bg-white/25 text-white rounded-xl text-xs font-bold transition-all cursor-pointer hover:shadow-xs active:scale-95"
+                  title="Menu Olah Data Excel: Impor rombel massal, unduh template, dan ekspor CSV"
+                >
+                  <Upload className="w-4 h-4 text-emerald-300" />
+                  <span>Menu Excel & Impor</span>
+                  <ChevronDown className={cn("w-3.5 h-3.5 text-white/80 transition-transform duration-150", isTemplateDropdownOpen && "rotate-180")} />
+                </button>
+
+                {isTemplateDropdownOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-20" 
+                      onClick={() => setIsTemplateDropdownOpen(false)} 
+                    />
+                    <div className="absolute right-0 top-full mt-2 w-76 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-2 z-30 animate-in fade-in zoom-in-95 duration-150 text-slate-800 dark:text-slate-200">
+                      <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800">
+                        <p className="text-xs font-black text-[#003399] dark:text-blue-400 flex items-center gap-1.5">
+                          <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          <span>Pusat Olah Data Excel (.xlsx)</span>
+                        </p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">
+                          Kelola rombel massal & berkas data siswa aktif
+                        </p>
+                      </div>
+
+                      <div className="p-1 space-y-1">
+                        {currentRole !== 'umum' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsTemplateDropdownOpen(false);
+                              setIsImportRombelModalOpen(true);
+                            }}
+                            className="w-full text-left p-2.5 rounded-xl hover:bg-emerald-50 dark:hover:bg-slate-800 transition-colors flex items-start gap-2.5 cursor-pointer group"
+                          >
+                            <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                              <Upload className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-slate-900 dark:text-white">
+                                Impor Rombel Excel (.xlsx)
+                              </p>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+                                Unggah berkas Excel untuk merubah penempatan kelas/rombel siswa massal.
+                              </p>
+                            </div>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={handleDownloadPopulatedTemplate}
+                          className="w-full text-left p-2.5 rounded-xl hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors flex items-start gap-2.5 cursor-pointer group"
+                        >
+                          <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                            <Download className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-xs font-bold text-slate-900 dark:text-white">
+                                Template Terisi ({activeStudents.length} Siswa)
+                              </p>
+                              <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-emerald-500 text-white rounded">
+                                Disarankan
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+                              Format otomatis terisi nama, NIS, & NISN siswa. Cukup isi rombel baru.
+                            </p>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleDownloadBlankTemplate}
+                          className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-start gap-2.5 cursor-pointer group"
+                        >
+                          <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                            <FileSpreadsheet className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-slate-900 dark:text-white">
+                              Template Blanko Kosong
+                            </p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+                              Format template kosong disertai petunjuk format baku Kemdikbud.
+                            </p>
+                          </div>
+                        </button>
+
+                        <div className="pt-1 mt-1 border-t border-slate-100 dark:border-slate-800">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsTemplateDropdownOpen(false);
+                              exportStudentsCSV(activeStudents);
+                            }}
+                            className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-start gap-2.5 cursor-pointer group"
+                          >
+                            <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                              <Download className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-slate-900 dark:text-white">
+                                Ekspor Seluruh Siswa Aktif (.csv)
+                              </p>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+                                Unduh rekaman lengkap seluruh data siswa aktif ({totalActive} siswa).
+                              </p>
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Grup 3: Cetak Dokumen Resmi */}
+            <div className="p-1 bg-amber-400/20 backdrop-blur-md rounded-2xl border border-amber-300/40 shadow-xs">
               <button
                 type="button"
-                onClick={() => setIsManageClassesOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-white/15 hover:bg-white/25 border border-white/25 rounded-xl text-xs font-bold text-white transition-all shadow-sm cursor-pointer"
-                title="Kelola & edit daftar pilihan kelas/rombel sekolah"
+                onClick={() => handlePrint(subTab === 'tabel-rombel' ? 'rekap-rombel' : 'daftar-siswa')}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 rounded-xl text-xs font-black transition-all shadow-md hover:shadow-lg cursor-pointer active:scale-95"
+                title="Buka menu & pengaturan cetak dokumen resmi (lengkap dengan Kop Surat, pilihan kertas A4/F4, kolom, dan tanda tangan)"
               >
-                <Layers className="w-4 h-4 text-amber-300" />
-                <span>Kelola Rombel</span>
+                <Printer className="w-4 h-4 text-slate-950" />
+                <span>Cetak Dokumen</span>
               </button>
-            )}
-
-            <button
-              onClick={() => exportStudentsCSV(activeStudents)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white/15 hover:bg-white/25 border border-white/25 rounded-xl text-xs font-bold text-white transition-all shadow-sm cursor-pointer"
-              title="Unduh Data Siswa Aktif format CSV / Excel"
-            >
-              <Download className="w-4 h-4 text-amber-300" />
-              <span>Ekspor Excel</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsDownloadRombelModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-400 hover:bg-emerald-300 text-slate-950 rounded-xl text-xs font-black transition-all shadow-md cursor-pointer hover:shadow-lg active:scale-98"
-              title="Unduh data daftar siswa per rombel/kelas ke dalam format .xlsx untuk guru wali kelas"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-slate-950" />
-              <span>Unduh Excel Rombel</span>
-            </button>
-            <button
-              onClick={() => handlePrint(subTab === 'tabel-rombel' ? 'rekap-rombel' : 'daftar-siswa')}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl text-xs font-extrabold transition-all shadow-md cursor-pointer"
-              title="Buka menu & pengaturan cetak dokumen resmi (lengkap dengan Kop Surat, pilihan kertas A4/F4, kolom, dan tanda tangan)"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Cetak Dokumen</span>
-            </button>
+            </div>
           </div>
         </div>
 
@@ -1283,8 +1332,8 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
       )}
 
       {/* NAVIGASI TAB MENU UTAMA */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden print:hidden">
-        <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 overflow-x-auto scrollbar-thin">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-1.5 print:hidden">
+        <div className="flex bg-slate-50 dark:bg-slate-800/50 p-1 rounded-xl gap-1 overflow-x-auto scrollbar-thin">
           {[
             { id: 'daftar', label: 'Daftar Siswa Aktif', icon: Users, badge: totalActive },
             { id: 'edit', label: 'Edit Data Siswa', icon: Edit3 },
@@ -1301,18 +1350,18 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
                 key={item.id}
                 onClick={() => setSubTab(item.id as ActiveStudentsSubTab)}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-3.5 text-xs font-bold border-b-2 whitespace-nowrap transition-all cursor-pointer",
+                  "flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer",
                   isActive
-                    ? "border-[#003399] text-[#003399] dark:text-blue-400 bg-white dark:bg-slate-900 shadow-xs"
-                    : "border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100/70 dark:hover:bg-slate-800/40"
+                    ? "bg-[#003399] text-white shadow-sm"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60"
                 )}
               >
-                <Icon className={cn("w-4 h-4", isActive ? "text-[#003399] dark:text-blue-400" : "text-slate-400")} />
+                <Icon className={cn("w-4 h-4", isActive ? "text-amber-300" : "text-slate-400")} />
                 <span>{item.label}</span>
                 {item.badge !== undefined && (
                   <span className={cn(
-                    "px-1.5 py-0.5 rounded-full text-[10px] font-extrabold",
-                    isActive ? "bg-blue-100 text-[#003399] dark:bg-blue-950 dark:text-blue-300" : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400"
+                    "px-1.5 py-0.5 rounded-full text-[10px] font-black",
+                    isActive ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
                   )}>
                     {item.badge}
                   </span>
