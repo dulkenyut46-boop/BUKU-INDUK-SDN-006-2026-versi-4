@@ -145,23 +145,65 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return !val || (typeof val === 'string' && val.trim() === '');
   });
 
-  // Class distribution data for Bar Chart (Accurately partitioned by Gender and Class)
-  const classOrder = ['Kelas 1', 'Kelas 2', 'Kelas 3', 'Kelas 4', 'Kelas 5', 'Kelas 6'];
-  const classData = classOrder.map(kelas => {
-    const classStudents = activeStudents.filter(s => s.kelasSekarang === kelas);
-    const lCount = classStudents.filter(s => s.jenisKelamin === 'L').length;
-    const pCount = classStudents.filter(s => s.jenisKelamin === 'P').length;
-    const total = classStudents.length;
+  // Class distribution data for Bar Chart:
+  // Penggabungan seluruh rombel identik per tingkat kelas (contoh: Kelas 1 menggabungkan Kelas 1A, 1B, 1C, dst.)
+  const classData = [1, 2, 3, 4, 5, 6].map(tingkat => {
+    const kelasLabel = `Kelas ${tingkat}`;
+
+    // Filter seluruh siswa aktif di bulan berjalan yang berada pada tingkat kelas ini
+    const classStudents = activeStudents.filter(s => {
+      if ((s as any).projectedTingkat !== undefined && (s as any).projectedTingkat >= 1 && (s as any).projectedTingkat <= 6) {
+        return (s as any).projectedTingkat === tingkat;
+      }
+      const rawKelas = s.kelasSekarang || (s as any).projectedRombel;
+      if (!rawKelas || typeof rawKelas !== 'string' || rawKelas.trim() === '') return false;
+      return getTingkatKelasNumber(rawKelas) === tingkat;
+    });
+
+    // Identifikasi seluruh rombel variasi yang tergabung dalam tingkat ini (misal: ['Kelas 1A', 'Kelas 1B'])
+    const rombelSet = new Set<string>();
+    classStudents.forEach(s => {
+      const r = (s.kelasSekarang || (s as any).projectedRombel || '').trim();
+      if (r) rombelSet.add(r);
+    });
+    const rombelList = Array.from(rombelSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+    // Rincian per rombel untuk kebutuhan tooltip / info
+    const rombelBreakdown = rombelList.map(rName => {
+      const rStudents = classStudents.filter(s => (s.kelasSekarang || (s as any).projectedRombel || '').trim() === rName);
+      return {
+        name: rName,
+        total: rStudents.length,
+        l: rStudents.filter(s => s.jenisKelamin === 'L').length,
+        p: rStudents.filter(s => s.jenisKelamin === 'P').length,
+      };
+    });
+
+    let lCount = classStudents.filter(s => s.jenisKelamin === 'L').length;
+    let pCount = classStudents.filter(s => s.jenisKelamin === 'P').length;
+    let total = classStudents.length;
+
+    // Fallback sinkronisasi ke tingkatCounts kalkulasi bulanan resmi jika list direct bernilai 0
+    if (total === 0 && runningMonthData.tingkatCounts?.[tingkat]?.total > 0) {
+      const tc = runningMonthData.tingkatCounts[tingkat];
+      total = tc.total;
+      lCount = tc.jmlL !== undefined ? tc.jmlL : (tc.l || 0);
+      pCount = tc.jmlP !== undefined ? tc.jmlP : (tc.p || 0);
+    }
+
     const lPct = total > 0 ? Math.round((lCount / total) * 100) : 0;
     const pPct = total > 0 ? Math.round((pCount / total) * 100) : 0;
 
     return {
-      kelas,
+      tingkat,
+      kelas: kelasLabel,
       Laki: lCount,
       Perempuan: pCount,
       Total: total,
       lPct,
       pPct,
+      rombelList,
+      rombelBreakdown,
     };
   });
 
@@ -178,34 +220,58 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     { name: 'Mutasi Keluar', value: totalMutated, color: '#f59e0b' },
   ];
 
-  // Custom chart tooltip for accurate gender insight
+  // Custom chart tooltip for accurate gender insight and merged rombel breakdown
   const CustomChartTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length && label) {
       const dataItem = classData.find(c => c.kelas === label);
       if (!dataItem) return null;
 
       return (
-        <div className="bg-slate-900/95 text-white p-3 rounded-xl shadow-xl border border-slate-700 text-xs space-y-1.5 backdrop-blur-xs min-w-[170px]">
-          <div className="font-extrabold text-amber-400 border-b border-slate-700 pb-1 flex items-center justify-between">
+        <div className="bg-slate-900/95 text-white p-3 rounded-xl shadow-xl border border-slate-700 text-xs space-y-2 backdrop-blur-xs min-w-[200px] max-w-[280px]">
+          <div className="font-extrabold text-amber-400 border-b border-slate-700 pb-1.5 flex items-center justify-between">
             <span>{label}</span>
             <span className="text-[11px] text-slate-300">Total: {dataItem.Total} Siswa</span>
           </div>
-          <div className="flex items-center justify-between text-blue-300 font-bold">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#0056b3]" />
-              Laki-Laki:
-            </span>
-            <span>{dataItem.Laki} anak ({dataItem.lPct}%)</span>
+
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-blue-300 font-bold">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#0056b3]" />
+                Laki-Laki (L):
+              </span>
+              <span>{dataItem.Laki} anak ({dataItem.lPct}%)</span>
+            </div>
+            <div className="flex items-center justify-between text-orange-300 font-bold">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#ea580c]" />
+                Perempuan (P):
+              </span>
+              <span>{dataItem.Perempuan} siswi ({dataItem.pPct}%)</span>
+            </div>
           </div>
-          <div className="flex items-center justify-between text-orange-300 font-bold">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#ea580c]" />
-              Perempuan:
-            </span>
-            <span>{dataItem.Perempuan} siswi ({dataItem.pPct}%)</span>
-          </div>
-          <div className="pt-1 border-t border-slate-800 text-[10px] text-slate-400">
-            Rasio L:P = {dataItem.lPct}% : {dataItem.pPct}%
+
+          {/* Rincian Rombel Gabungan jika ada variabel kelas lebih dari 1 */}
+          {dataItem.rombelBreakdown && dataItem.rombelBreakdown.length > 1 && (
+            <div className="pt-2 border-t border-slate-800 space-y-1">
+              <div className="text-[10px] font-bold text-amber-300 flex items-center justify-between">
+                <span>Penggabungan {dataItem.rombelBreakdown.length} Rombel:</span>
+              </div>
+              <div className="space-y-0.5 max-h-24 overflow-y-auto">
+                {dataItem.rombelBreakdown.map((rb: any) => (
+                  <div key={rb.name} className="flex items-center justify-between text-[10px] text-slate-300 bg-slate-800/60 px-1.5 py-0.5 rounded">
+                    <span className="font-semibold text-slate-200">{rb.name}</span>
+                    <span className="font-mono text-slate-300">
+                      <strong>{rb.total}</strong> ({rb.l}L/{rb.p}P)
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="pt-1 border-t border-slate-800 text-[10px] text-slate-400 flex items-center justify-between">
+            <span>Rasio L : P</span>
+            <span className="font-mono">{dataItem.lPct}% : {dataItem.pPct}%</span>
           </div>
         </div>
       );
@@ -491,7 +557,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </h3>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Perbandingan jumlah Laki-Laki vs Perempuan di jenjang Kelas 1 sampai Kelas 6
+                Perbandingan jumlah Laki-Laki vs Perempuan di jenjang Kelas 1 sampai Kelas 6 (penggabungan seluruh rombel identik per tingkat)
               </p>
             </div>
 
@@ -572,18 +638,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             {classData.map(c => (
               <div 
                 key={c.kelas} 
-                className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 text-center space-y-1"
+                className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 text-center space-y-1 hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
               >
                 <div className="text-[11px] font-extrabold text-slate-800 dark:text-slate-200">
                   {c.kelas}
                 </div>
+                {c.rombelList && c.rombelList.length > 1 ? (
+                  <div 
+                    className="text-[9px] font-bold text-blue-600 dark:text-blue-400 truncate px-1" 
+                    title={`Penggabungan ${c.rombelList.length} rombel: ${c.rombelList.join(', ')}`}
+                  >
+                    {c.rombelList.length} Rombel ({c.rombelList.map(r => r.replace(/^Kelas\s*/i, '')).join(', ')})
+                  </div>
+                ) : (
+                  <div className="text-[9px] text-slate-400 dark:text-slate-500">
+                    Tingkat {c.tingkat}
+                  </div>
+                )}
                 <div className="flex items-center justify-center gap-2 text-xs font-bold">
-                  <span className="text-[#0056b3]">{c.Laki} L</span>
+                  <span className="text-[#0056b3] dark:text-blue-400">{c.Laki} L</span>
                   <span className="text-slate-400">•</span>
-                  <span className="text-[#ea580c]">{c.Perempuan} P</span>
+                  <span className="text-[#ea580c] dark:text-orange-400">{c.Perempuan} P</span>
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                  Total: <strong className="text-slate-800 dark:text-slate-200">{c.Total}</strong>
+                  Total: <strong className="text-slate-800 dark:text-slate-200">{c.Total}</strong> Siswa
                 </div>
               </div>
             ))}
