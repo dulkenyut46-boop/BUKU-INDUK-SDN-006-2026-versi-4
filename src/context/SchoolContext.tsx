@@ -26,6 +26,7 @@ import {
 } from '../services/sqlDatabaseService';
 import { 
   persistStudentsResiliently, 
+  persistTeachersResiliently,
   safeLocalStorageSet, 
   safeLocalStorageGet, 
   safeLocalStorageRemove,
@@ -528,6 +529,7 @@ const STORAGE_KEY_USERS = 'buku_induk_admin_users_v1';
 const STORAGE_KEY_SECURITY = 'buku_induk_security_v1';
 const STORAGE_KEY_AUTH = 'buku_induk_auth_state_v1';
 const STORAGE_KEY_CURRENT_USER = 'buku_induk_current_user_v1';
+const STORAGE_KEY_DELETED_TEACHERS = 'buku_induk_deleted_teacher_ids_v1';
 
 // Helper to ensure 'diterimaDiKelas' is properly formatted and converts legacy/mistyped '7', '7A', 'Kelas 7' to 'Kelas 1'
 export const sanitizeDiterimaDiKelas = (val?: string): string => {
@@ -651,6 +653,45 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             return hasEnriched ? merged : current;
           });
         }
+
+        // Asynchronously hydrate full-fidelity teachers & staff (GTK) from IndexedDB
+        const idbTeachers = await idbGet<AdminUser[]>('admin_users');
+        if (isMounted && idbTeachers && Array.isArray(idbTeachers) && idbTeachers.length > 0) {
+          const rawDelTeachers = localStorage.getItem(STORAGE_KEY_DELETED_TEACHERS);
+          const delTeacherSet = new Set<string>(rawDelTeachers ? JSON.parse(rawDelTeachers) : []);
+
+          setAdminUsers((current) => {
+            const validIdbTeachers = idbTeachers.filter(t => t && t.id && !delTeacherSet.has(t.id));
+            if (validIdbTeachers.length === 0) return current;
+
+            const idbMap = new Map(validIdbTeachers.map(t => [t.id, t]));
+            const currentIdSet = new Set(current.map(c => c.id));
+            
+            // Find any teachers that exist in IndexedDB but are missing in current
+            // (e.g. newly added teacher saved to IndexedDB, or if localStorage was wiped or quota-restricted)
+            const missingFromCurrent = validIdbTeachers.filter(t => !currentIdSet.has(t.id));
+
+            let hasEnriched = missingFromCurrent.length > 0;
+            const merged = current.map(c => {
+              if (delTeacherSet.has(c.id)) return c;
+              const fromIdb = idbMap.get(c.id);
+              if (fromIdb) {
+                // Restore high-resolution photo if current has empty or stripped photo
+                const enrichedPhoto = (!c.fotoUrl && fromIdb.fotoUrl) ? fromIdb.fotoUrl : c.fotoUrl;
+                if (enrichedPhoto !== c.fotoUrl) {
+                  hasEnriched = true;
+                  return { ...c, fotoUrl: enrichedPhoto };
+                }
+              }
+              return c;
+            });
+
+            if (hasEnriched) {
+              return [...missingFromCurrent, ...merged];
+            }
+            return current;
+          });
+        }
       } catch (err) {
         console.warn('Hydration from IndexedDB notice:', err);
       }
@@ -701,23 +742,28 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Admin users state
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>(() => {
     try {
+      const rawDeleted = localStorage.getItem(STORAGE_KEY_DELETED_TEACHERS);
+      const deletedSet = new Set<string>(rawDeleted ? JSON.parse(rawDeleted) : []);
+
       const saved = localStorage.getItem(STORAGE_KEY_USERS);
       if (saved) {
         const parsed: AdminUser[] = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map(u => {
-            if (u.role === 'admin' || u.id === 'usr-001') {
-              return {
-                ...u,
-                username: u.username || 'adminsdn006',
-                password: u.password || 'sdn006',
-              };
-            }
-            return u;
-          });
+          return parsed
+            .filter(u => u && u.id && !deletedSet.has(u.id))
+            .map(u => {
+              if (u.role === 'admin' || u.id === 'usr-001') {
+                return {
+                  ...u,
+                  username: u.username || 'adminsdn006',
+                  password: u.password || 'sdn006',
+                };
+              }
+              return u;
+            });
         }
       }
-      return initialAdminUsers;
+      return initialAdminUsers.filter(u => !deletedSet.has(u.id));
     } catch {
       return initialAdminUsers;
     }
@@ -853,7 +899,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [rolePermissions]);
 
   useEffect(() => {
-    safeLocalStorageSet(STORAGE_KEY_USERS, JSON.stringify(adminUsers));
+    persistTeachersResiliently(STORAGE_KEY_USERS, adminUsers);
   }, [adminUsers]);
 
   useEffect(() => {
@@ -1023,10 +1069,14 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const addAdminUser = (user: Omit<AdminUser, 'id' | 'terakhirLogin'>) => {
     const newUser: AdminUser = {
       ...user,
-      id: `usr-${Date.now()}`,
+      id: `usr-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       terakhirLogin: 'Belum pernah',
     };
-    setAdminUsers(prev => [newUser, ...prev]);
+    setAdminUsers(prev => {
+      const updated = [newUser, ...prev];
+      persistTeachersResiliently(STORAGE_KEY_USERS, updated);
+      return updated;
+    });
 
     // Sync Kepala Sekolah if this user is assigned as Kepsek
     if (user.kategoriTugas === 'kepala_sekolah' || user.jabatan.toLowerCase().includes('kepala sekolah')) {
@@ -1041,9 +1091,11 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateAdminUser = (id: string, data: Partial<AdminUser>) => {
-    setAdminUsers(prev =>
-      prev.map(u => (u.id === id ? { ...u, ...data } : u))
-    );
+    setAdminUsers(prev => {
+      const updated = prev.map(u => (u.id === id ? { ...u, ...data } : u));
+      persistTeachersResiliently(STORAGE_KEY_USERS, updated);
+      return updated;
+    });
 
     // Sync Kepala Sekolah if edited
     if (data.kategoriTugas === 'kepala_sekolah' || (data.jabatan && data.jabatan.toLowerCase().includes('kepala sekolah'))) {
@@ -1059,7 +1111,20 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const deleteAdminUser = (id: string) => {
     const target = adminUsers.find(u => u.id === id);
-    setAdminUsers(prev => prev.filter(u => u.id !== id));
+    try {
+      const rawDeleted = localStorage.getItem(STORAGE_KEY_DELETED_TEACHERS);
+      const deletedList: string[] = rawDeleted ? JSON.parse(rawDeleted) : [];
+      if (!deletedList.includes(id)) {
+        deletedList.push(id);
+        safeLocalStorageSet(STORAGE_KEY_DELETED_TEACHERS, JSON.stringify(deletedList));
+      }
+    } catch {}
+
+    setAdminUsers(prev => {
+      const updated = prev.filter(u => u.id !== id);
+      persistTeachersResiliently(STORAGE_KEY_USERS, updated);
+      return updated;
+    });
     logActivity('PENGATURAN', `Menghapus akun petugas: ${target?.nama || id}`);
   };
 
@@ -1138,6 +1203,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (strategy === 'replace') {
       setAdminUsers(formattedUsers);
+      persistTeachersResiliently(STORAGE_KEY_USERS, formattedUsers);
       addedCount = formattedUsers.length;
     } else {
       setAdminUsers(prev => {
@@ -1169,7 +1235,9 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return match ? { ...p, ...match } : p;
         });
 
-        return [...toAdd, ...merged];
+        const finalMerged = [...toAdd, ...merged];
+        persistTeachersResiliently(STORAGE_KEY_USERS, finalMerged);
+        return finalMerged;
       });
     }
 
@@ -2486,8 +2554,10 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     safeLocalStorageRemove(STORAGE_KEY_LOGS);
     safeLocalStorageRemove(STORAGE_KEY_PERMISSIONS);
     safeLocalStorageRemove(STORAGE_KEY_USERS);
+    safeLocalStorageRemove(STORAGE_KEY_DELETED_TEACHERS);
     safeLocalStorageRemove(STORAGE_KEY_SECURITY);
     idbDelete('students').catch(() => {});
+    idbDelete('admin_users').catch(() => {});
     idbDelete('activity_logs').catch(() => {});
     idbDelete('school_profile').catch(() => {});
     logActivity('PENGATURAN', 'Mereset database Buku Induk kembali ke data bawaan sistem');

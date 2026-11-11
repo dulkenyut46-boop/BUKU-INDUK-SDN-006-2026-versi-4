@@ -1,4 +1,4 @@
-import { Student } from '../types';
+import { Student, AdminUser } from '../types';
 
 const DB_NAME = 'buku_induk_storage_v1';
 const DB_STORE_NAME = 'keyval';
@@ -200,7 +200,22 @@ export function repairStorageQuota(): void {
       }
     }
 
-    // 2. Compact activity logs in localStorage
+    // 2. Check and compress existing teacher cache in localStorage
+    const savedTeachers = localStorage.getItem('buku_induk_admin_users_v1');
+    if (savedTeachers) {
+      try {
+        const parsedT = JSON.parse(savedTeachers);
+        if (Array.isArray(parsedT) && parsedT.length > 0) {
+          idbSet('admin_users', parsedT).catch(() => {});
+          const ultraLeanT = createLeanTeachersForLocalStorage(parsedT, true);
+          localStorage.setItem('buku_induk_admin_users_v1', JSON.stringify(ultraLeanT));
+        }
+      } catch (err) {
+        console.warn('[storageHelper] Error compressing teacher cache during quota repair:', err);
+      }
+    }
+
+    // 3. Compact activity logs in localStorage
     const savedLogs = localStorage.getItem('buku_induk_logs_v1');
     if (savedLogs) {
       try {
@@ -382,3 +397,71 @@ export function persistStudentsResiliently(
     } catch {}
   }
 }
+
+/**
+ * Strip heavy base64 profile pictures from teacher/staff records for ultra-compact localStorage backup,
+ * while IndexedDB retains 100% full-resolution photos without quota limits.
+ */
+export function createLeanTeachersForLocalStorage(teachers: AdminUser[], ultraMode = false): AdminUser[] {
+  return teachers.map((t) => {
+    let lean = { ...t };
+    if (lean.fotoUrl && lean.fotoUrl.startsWith('data:')) {
+      if (ultraMode || lean.fotoUrl.length > 8000) {
+        lean = {
+          ...lean,
+          fotoUrl: '',
+        };
+      }
+    }
+    return lean;
+  });
+}
+
+/**
+ * Save teachers & staff resiliently:
+ * 1. Asynchronously into IndexedDB (persists all photos, custom fields without quota limits).
+ * 2. Synchronously into localStorage as fast boot cache (automatically optimizes if photos are large).
+ * Never throws QuotaExceededError and prevents teacher records from vanishing after closing app.
+ */
+export function persistTeachersResiliently(
+  storageKey: string,
+  teachers: AdminUser[]
+): void {
+  // 1. IndexedDB persistence (unlimited storage, full fidelity)
+  idbSet('admin_users', teachers).catch((err) => {
+    console.warn('[storageHelper] Failed to persist teachers to IndexedDB:', err);
+  });
+
+  // 2. LocalStorage persistence (fast synchronous startup cache)
+  try {
+    const hasHeavyImages = teachers.some(t => t.fotoUrl && t.fotoUrl.startsWith('data:') && t.fotoUrl.length > 8000);
+
+    if (hasHeavyImages || teachers.length > 20) {
+      const lean = createLeanTeachersForLocalStorage(teachers, false);
+      const leanSuccess = safeLocalStorageSet(storageKey, JSON.stringify(lean));
+      if (!leanSuccess) {
+        const ultraLean = createLeanTeachersForLocalStorage(teachers, true);
+        safeLocalStorageSet(storageKey, JSON.stringify(ultraLean));
+      }
+      return;
+    }
+
+    const json = JSON.stringify(teachers);
+    const success = safeLocalStorageSet(storageKey, json);
+    if (!success) {
+      const lean = createLeanTeachersForLocalStorage(teachers, false);
+      const leanSuccess = safeLocalStorageSet(storageKey, JSON.stringify(lean));
+      if (!leanSuccess) {
+        const ultraLean = createLeanTeachersForLocalStorage(teachers, true);
+        safeLocalStorageSet(storageKey, JSON.stringify(ultraLean));
+      }
+    }
+  } catch (err) {
+    console.warn('[storageHelper] Failed to serialize teachers for localStorage:', err);
+    try {
+      const ultraLean = createLeanTeachersForLocalStorage(teachers, true);
+      safeLocalStorageSet(storageKey, JSON.stringify(ultraLean));
+    } catch {}
+  }
+}
+
