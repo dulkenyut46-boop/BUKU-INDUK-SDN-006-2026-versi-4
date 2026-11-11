@@ -395,10 +395,12 @@ export interface AdminUser {
   pejabatSkMutasi?: string;
   keteranganKeluar?: string;
 
-  // Data Riwayat Keaktifan Guru / Cuti / Pensiun
+  // Data Riwayat Keaktifan Guru / Cuti / Pensiun / Wafat
   tanggalPensiun?: string;
   noSkPensiun?: string;
   pejabatSkPensiun?: string;
+  tanggalWafat?: string; // Tanggal wafat / berpulang
+  tempatWafat?: string; // Tempat wafat (misal: RSUD Teluk Kuantan / Rumah Duka)
   jenisCuti?: string;
   tglMulaiCuti?: string;
   tglSelesaiCuti?: string;

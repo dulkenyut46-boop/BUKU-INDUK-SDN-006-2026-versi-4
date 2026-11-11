@@ -7,6 +7,30 @@
 import * as XLSX from 'xlsx';
 import { AdminUser, TeacherDutyCategory, TeacherActiveStatus, SchoolProfile } from '../types';
 
+/**
+ * Helper to identify whether a teacher / staff is detected as deceased / wafat
+ */
+export const isTeacherMeninggal = (t: AdminUser | null | undefined): boolean => {
+  if (!t) return false;
+  const s = (t.status || '').toLowerCase().trim();
+  const a = (t.alasanKeluar || '').toLowerCase().trim();
+  const k = (t.keteranganKeluar || '').toLowerCase().trim();
+  const akt = (t.keteranganKeaktifan || '').toLowerCase().trim();
+  return (
+    s === 'meninggal' ||
+    s.includes('meninggal') ||
+    s.includes('wafat') ||
+    a === 'meninggal dunia' ||
+    a.includes('meninggal') ||
+    a.includes('wafat') ||
+    k.includes('meninggal') ||
+    k.includes('wafat') ||
+    akt.includes('meninggal') ||
+    akt.includes('wafat') ||
+    Boolean(t.tanggalWafat)
+  );
+};
+
 export const TEACHER_EXCEL_HEADERS = [
   'No',
   'Nama Lengkap',
@@ -430,6 +454,48 @@ export const SAMPLE_TEACHER_ROWS = [
     '2025-07-02',
     'Kepala Dinas Pendidikan Kuantan Singingi',
     'Pindah tugas mendekati domisili keluarga di ibukota kabupaten'
+  ],
+  [
+    10,
+    'Almh. Hj. ASNAH, S.Pd.SD',
+    'Hj.',
+    'S.Pd.SD',
+    '19700315 199308 2 001',
+    '6543748650200021',
+    '1409055503700001',
+    'P',
+    'Sungai Buluh',
+    '1970-03-15',
+    'Zubaidah',
+    'Islam',
+    'Menikah',
+    '081275661122',
+    'asnah.almarhumah@sdn006.sch.id',
+    'Jl. Ahmad Yani RT 002 RW 001 Desa Sungai Buluh',
+    'PNS (Pegawai Negeri Sipil)',
+    'Pembina (IV/a)',
+    'S1 / Sarjana (D-IV)',
+    'Pendidikan Guru Sekolah Dasar (PGSD)',
+    'Universitas Riau',
+    'Wali Kelas',
+    'Mantan Guru Kelas 5 (Purna Tugas Akhir)',
+    'Kelas 5',
+    '-',
+    '-',
+    '-',
+    'Meninggal',
+    '1993-08-01',
+    '-',
+    '-',
+    '-',
+    '-',
+    'Meninggal Dunia',
+    '- (Purna Tugas Akhir / Wafat)',
+    '2025-11-20',
+    '800/DISDIK-KS/PEMBERHENTIAN-WAFAT/2025/089',
+    '2025-11-25',
+    'Bupati Kuantan Singingi / BKD',
+    'Meninggal dunia di RSUD Teluk Kuantan. Segala dedikasi tercatat dalam arsip penghormatan purna tugas akhir sekolah.'
   ]
 ];
 
@@ -703,6 +769,8 @@ export const parseExcelToTeachers = (
           const lowerStatus = rawStatus.toLowerCase();
           if (lowerStatus.includes('masuk')) {
             status = 'Mutasi Masuk';
+          } else if (lowerStatus.includes('meninggal') || lowerStatus.includes('wafat')) {
+            status = 'Meninggal';
           } else if (lowerStatus.includes('keluar') || lowerStatus.includes('pindah')) {
             status = 'Mutasi Keluar';
           } else if (lowerStatus.includes('pensiun')) {
@@ -711,8 +779,6 @@ export const parseExcelToTeachers = (
             status = 'Cuti';
           } else if (lowerStatus.includes('undur') || lowerStatus.includes('resign')) {
             status = 'Mengundurkan Diri';
-          } else if (lowerStatus.includes('meninggal')) {
-            status = 'Meninggal';
           } else if (lowerStatus.includes('nonaktif')) {
             status = 'Nonaktif';
           } else {
@@ -731,7 +797,21 @@ export const parseExcelToTeachers = (
             ) || ''
           ).trim();
 
-          const alasanKeluar = rawAlasanKeluar || (status === 'Pensiun' ? 'Pensiun Batas Usia Pensiun (BUP)' : status === 'Mutasi Keluar' ? 'Pindah Tugas / Mutasi Dinas ke Sekolah Lain' : '');
+          let alasanKeluar = rawAlasanKeluar;
+          if (rawAlasanKeluar.toLowerCase().includes('meninggal') || rawAlasanKeluar.toLowerCase().includes('wafat')) {
+            status = 'Meninggal';
+            alasanKeluar = rawAlasanKeluar || 'Meninggal Dunia';
+          } else if (!alasanKeluar) {
+            if (status === 'Meninggal') {
+              alasanKeluar = 'Meninggal Dunia';
+            } else if (status === 'Pensiun') {
+              alasanKeluar = 'Pensiun Batas Usia Pensiun (BUP)';
+            } else if (status === 'Mutasi Keluar') {
+              alasanKeluar = 'Pindah Tugas / Mutasi Dinas ke Sekolah Lain';
+            }
+          }
+
+          const rawTglKeluar = normalizeExcelDate(getVal('tanggal keluar / tmt keluar', 'tgl keluar', 'tanggal keluar', 'tanggal wafat', 'tgl wafat'));
 
           const teacherData: Partial<AdminUser> = {
             id: `usr-imp-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
@@ -772,14 +852,17 @@ export const parseExcelToTeachers = (
             tglSkMasuk: normalizeExcelDate(getVal('tanggal sk masuk', 'tgl sk masuk')),
             alasanMutasiMasuk: String(getVal('alasan masuk', 'alasan mutasi masuk') || '').trim(),
 
-            // Mutasi Keluar & Keluar Karena Apa
+            // Mutasi Keluar & Keluar Karena Apa & Wafat
             alasanKeluar,
-            sekolahTujuanMutasi: String(getVal('sekolah / instansi tujuan (mutasi keluar)', 'sekolah tujuan', 'tujuan mutasi') || '').trim(),
-            tglKeluar: normalizeExcelDate(getVal('tanggal keluar / tmt keluar', 'tgl keluar', 'tanggal keluar')),
-            noSkMutasi: String(getVal('no sk mutasi / keluar', 'no sk mutasi', 'no sk keluar') || '').trim(),
+            sekolahTujuanMutasi: status === 'Meninggal' ? '-' : String(getVal('sekolah / instansi tujuan (mutasi keluar)', 'sekolah tujuan', 'tujuan mutasi') || '').trim(),
+            tglKeluar: rawTglKeluar,
+            tanggalWafat: status === 'Meninggal' ? (rawTglKeluar || normalizeExcelDate(getVal('tanggal wafat', 'tgl wafat'))) : undefined,
+            tempatWafat: String(getVal('tempat wafat', 'tempat berpulang') || '').trim(),
+            noSkMutasi: String(getVal('no sk mutasi / keluar', 'no sk mutasi', 'no sk keluar', 'no sk pemberhentian') || '').trim(),
             tglSkMutasi: normalizeExcelDate(getVal('tanggal sk mutasi / keluar', 'tgl sk mutasi', 'tgl sk keluar')),
             pejabatSkMutasi: String(getVal('pejabat penetap sk keluar', 'pejabat penetap', 'pejabat sk') || '').trim(),
-            keteranganKeluar: String(getVal('keterangan / catatan keluar', 'keterangan keluar', 'keterangan') || '').trim(),
+            keteranganKeluar: String(getVal('keterangan / catatan keluar', 'keterangan keluar', 'keterangan', 'catatan penghormatan') || '').trim(),
+            keteranganKeaktifan: status === 'Meninggal' ? 'Wafat (Meninggal Dunia)' : undefined,
 
             role: (kategoriTugas === 'kepala_sekolah' || kategoriTugas === 'tenaga_kependidikan') ? 'admin' : 'user',
             avatarColor: 'bg-blue-600',
@@ -829,48 +912,51 @@ export const exportTeachersToExcel = (
 ) => {
   const wb = XLSX.utils.book_new();
 
-  const exportRows = teachers.map((t, idx) => [
-    idx + 1,
-    t.nama,
-    t.gelarDepan || '',
-    t.gelarBelakang || '',
-    t.nip || '-',
-    t.nuptk || '-',
-    t.nik || '-',
-    t.jenisKelamin || 'L',
-    t.tempatLahir || '-',
-    t.tanggalLahir || '-',
-    t.namaIbuKandung || '-',
-    t.agama || '-',
-    t.statusPernikahan || '-',
-    t.noHp || '-',
-    t.email || '-',
-    t.alamat || '-',
-    t.statusKepegawaian || '-',
-    t.pangkatGolongan || '-',
-    t.pendidikanTerakhir || '-',
-    t.jurusanPendidikan || '-',
-    t.ptAsal || '-',
-    t.kategoriTugas === 'kepala_sekolah' ? 'Kepala Sekolah' : t.kategoriTugas === 'wali_kelas' ? 'Wali Kelas' : t.kategoriTugas === 'guru_mapel' ? 'Guru Mapel' : 'Tenaga Kependidikan',
-    t.jabatan,
-    t.tingkatKelas || '-',
-    t.mataPelajaran || '-',
-    t.tugasTendik || '-',
-    t.tugasTambahan || '-',
-    t.status,
-    t.tmtTugas || t.tmtPengangkatan || '-',
-    t.sekolahAsalMutasi || '-',
-    t.noSkMasuk || '-',
-    t.tglSkMasuk || '-',
-    t.alasanMutasiMasuk || '-',
-    t.alasanKeluar || '-',
-    t.sekolahTujuanMutasi || '-',
-    t.tglKeluar || t.tanggalPensiun || '-',
-    t.noSkMutasi || t.noSkPensiun || '-',
-    t.tglSkMutasi || '-',
-    t.pejabatSkMutasi || t.pejabatSkPensiun || '-',
-    t.keteranganKeluar || t.keteranganKeaktifan || '-',
-  ]);
+  const exportRows = teachers.map((t, idx) => {
+    const isWafat = isTeacherMeninggal(t);
+    return [
+      idx + 1,
+      t.nama,
+      t.gelarDepan || '',
+      t.gelarBelakang || '',
+      t.nip || '-',
+      t.nuptk || '-',
+      t.nik || '-',
+      t.jenisKelamin || 'L',
+      t.tempatLahir || '-',
+      t.tanggalLahir || '-',
+      t.namaIbuKandung || '-',
+      t.agama || '-',
+      t.statusPernikahan || '-',
+      t.noHp || '-',
+      t.email || '-',
+      t.alamat || '-',
+      t.statusKepegawaian || '-',
+      t.pangkatGolongan || '-',
+      t.pendidikanTerakhir || '-',
+      t.jurusanPendidikan || '-',
+      t.ptAsal || '-',
+      t.kategoriTugas === 'kepala_sekolah' ? 'Kepala Sekolah' : t.kategoriTugas === 'wali_kelas' ? 'Wali Kelas' : t.kategoriTugas === 'guru_mapel' ? 'Guru Mapel' : 'Tenaga Kependidikan',
+      t.jabatan,
+      t.tingkatKelas || '-',
+      t.mataPelajaran || '-',
+      t.tugasTendik || '-',
+      t.tugasTambahan || '-',
+      isWafat ? 'Meninggal' : t.status,
+      t.tmtTugas || t.tmtPengangkatan || '-',
+      t.sekolahAsalMutasi || '-',
+      t.noSkMasuk || '-',
+      t.tglSkMasuk || '-',
+      t.alasanMutasiMasuk || '-',
+      isWafat ? (t.alasanKeluar || 'Meninggal Dunia') : (t.alasanKeluar || '-'),
+      isWafat ? '-' : (t.sekolahTujuanMutasi || '-'),
+      isWafat ? (t.tanggalWafat || t.tglKeluar || '-') : (t.tglKeluar || t.tanggalPensiun || '-'),
+      t.noSkMutasi || t.noSkPensiun || '-',
+      t.tglSkMutasi || '-',
+      t.pejabatSkMutasi || t.pejabatSkPensiun || '-',
+      t.keteranganKeluar || t.keteranganKeaktifan || (isWafat ? 'Wafat (Meninggal Dunia)' : '-'),
+    ];
+  });
 
   const ws = XLSX.utils.aoa_to_sheet([
     TEACHER_EXCEL_HEADERS,

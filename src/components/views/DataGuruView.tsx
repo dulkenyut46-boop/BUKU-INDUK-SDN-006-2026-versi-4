@@ -47,7 +47,7 @@ import { KopSuratHeader } from '../layout/KopSuratHeader';
 import { CameraCaptureModal } from '../modals/CameraCaptureModal';
 import { ImportTeacherExcelModal } from '../modals/ImportTeacherExcelModal';
 import { compressImageFile } from '../../utils/imageCompressor';
-import { downloadTeacherTemplateExcel, exportTeachersToExcel } from '../../utils/excelTeacherHelper';
+import { downloadTeacherTemplateExcel, exportTeachersToExcel, isTeacherMeninggal } from '../../utils/excelTeacherHelper';
 
 interface DataGuruViewProps {
   onBack?: () => void;
@@ -139,6 +139,7 @@ const STATUS_MENGAJAR_OPTIONS = [
   { value: 'Pensiun', label: 'Pensiun (Purna Tugas)', desc: 'Telah mencapai batas usia pensiun / purnatugas' },
   { value: 'Cuti', label: 'Cuti (Melahirkan / Sakit / Alasan Penting)', desc: 'Sedang dalam masa cuti resmi' },
   { value: 'Mutasi Keluar', label: 'Mutasi Keluar (Pindah Tugas)', desc: 'Pindah tugas ke sekolah atau instansi lain' },
+  { value: 'Meninggal', label: 'Meninggal Dunia (Wafat / Purna Tugas Akhir)', desc: 'Pemberhentian karena berpulang / wafat' },
   { value: 'Nonaktif', label: 'Nonaktif / Berhenti', desc: 'Status nonaktif atau tidak bertugas' },
 ];
 
@@ -169,7 +170,7 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | TeacherDutyCategory>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [activeSubTab, setActiveSubTab] = useState<'semua' | 'guru' | 'tendik' | 'mutasi_masuk' | 'mutasi_keluar' | 'pensiun'>('semua');
+  const [activeSubTab, setActiveSubTab] = useState<'semua' | 'guru' | 'tendik' | 'mutasi_masuk' | 'mutasi_keluar' | 'pensiun' | 'meninggal'>('semua');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<AdminUser | null>(null);
@@ -220,10 +221,12 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
     tglSkMasuk: string;
     pejabatSkMasuk: string;
     alasanMutasiMasuk: string;
-    // Data Riwayat Keaktifan & Mutasi Keluar
+    // Data Riwayat Keaktifan, Mutasi Keluar & Wafat
     alasanKeluar: string; // "Keluar Karena Apa"
     sekolahTujuanMutasi: string;
     tglKeluar: string;
+    tanggalWafat: string;
+    tempatWafat: string;
     noSkMutasi: string;
     tglSkMutasi: string;
     pejabatSkMutasi: string;
@@ -282,6 +285,8 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
     alasanKeluar: '',
     sekolahTujuanMutasi: '',
     tglKeluar: '',
+    tanggalWafat: '',
+    tempatWafat: '',
     noSkMutasi: '',
     tglSkMutasi: '',
     pejabatSkMutasi: '',
@@ -464,7 +469,7 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
       jabatan: user.jabatan || '',
       isCustomJabatan: true,
       role: user.role || 'user',
-      status: user.status || 'Aktif',
+      status: user.status || (isTeacherMeninggal(user) ? 'Meninggal' : 'Aktif'),
       isMutasiMasuk: Boolean(user.isMutasiMasuk || user.sekolahAsalMutasi),
       sekolahAsalMutasi: user.sekolahAsalMutasi || '',
       tglMasukSekolah: user.tglMasukSekolah || '',
@@ -472,9 +477,11 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
       tglSkMasuk: user.tglSkMasuk || '',
       pejabatSkMasuk: user.pejabatSkMasuk || '',
       alasanMutasiMasuk: user.alasanMutasiMasuk || '',
-      alasanKeluar: user.alasanKeluar || '',
+      alasanKeluar: user.alasanKeluar || (isTeacherMeninggal(user) ? 'Meninggal Dunia' : ''),
       sekolahTujuanMutasi: user.sekolahTujuanMutasi || '',
-      tglKeluar: user.tglKeluar || '',
+      tglKeluar: user.tglKeluar || user.tanggalWafat || '',
+      tanggalWafat: user.tanggalWafat || (isTeacherMeninggal(user) ? (user.tglKeluar || '') : ''),
+      tempatWafat: user.tempatWafat || '',
       noSkMutasi: user.noSkMutasi || '',
       tglSkMutasi: user.tglSkMutasi || '',
       pejabatSkMutasi: user.pejabatSkMutasi || '',
@@ -600,7 +607,7 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
       mataPelajaran: formData.kategoriTugas === 'guru_mapel' ? formData.mataPelajaran : undefined,
       tugasTendik: formData.kategoriTugas === 'tenaga_kependidikan' ? formData.tugasTendik : undefined,
       role: formData.role,
-      status: formData.status,
+      status: (formData.status === 'Meninggal' || formData.alasanKeluar === 'Meninggal Dunia' || formData.alasanKeluar?.toLowerCase().includes('meninggal') || formData.alasanKeluar?.toLowerCase().includes('wafat')) ? 'Meninggal' : formData.status,
       // Mutasi Masuk
       isMutasiMasuk: formData.isMutasiMasuk,
       sekolahAsalMutasi: formData.isMutasiMasuk ? formData.sekolahAsalMutasi.trim() || undefined : undefined,
@@ -609,13 +616,17 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
       tglSkMasuk: formData.isMutasiMasuk ? formData.tglSkMasuk || undefined : undefined,
       pejabatSkMasuk: formData.isMutasiMasuk ? formData.pejabatSkMasuk.trim() || undefined : undefined,
       alasanMutasiMasuk: formData.isMutasiMasuk ? formData.alasanMutasiMasuk.trim() || undefined : undefined,
-      // Mutasi Keluar & Purna Tugas
-      alasanKeluar: (formData.status === 'Mutasi Keluar' || formData.status === 'Pensiun' || formData.status === 'Nonaktif' || formData.alasanKeluar) ? formData.alasanKeluar || undefined : undefined,
-      sekolahTujuanMutasi: formData.status === 'Mutasi Keluar' ? formData.sekolahTujuanMutasi.trim() || undefined : undefined,
-      tglKeluar: (formData.status === 'Mutasi Keluar' || formData.status === 'Pensiun' || formData.status === 'Nonaktif') ? (formData.tglKeluar || formData.tanggalPensiun || undefined) : undefined,
-      noSkMutasi: (formData.status === 'Mutasi Keluar' || formData.status === 'Pensiun') ? (formData.noSkMutasi.trim() || formData.noSkPensiun.trim() || undefined) : undefined,
-      tglSkMutasi: (formData.status === 'Mutasi Keluar' || formData.status === 'Pensiun') ? (formData.tglSkMutasi || undefined) : undefined,
-      pejabatSkMutasi: (formData.status === 'Mutasi Keluar' || formData.status === 'Pensiun') ? (formData.pejabatSkMutasi.trim() || formData.pejabatSkPensiun.trim() || undefined) : undefined,
+      // Mutasi Keluar & Purna Tugas & Wafat
+      alasanKeluar: (formData.status === 'Meninggal' || formData.alasanKeluar === 'Meninggal Dunia' || formData.alasanKeluar?.toLowerCase().includes('meninggal') || formData.alasanKeluar?.toLowerCase().includes('wafat'))
+        ? (formData.alasanKeluar || 'Meninggal Dunia')
+        : ((formData.status === 'Mutasi Keluar' || formData.status === 'Pensiun' || formData.status === 'Nonaktif' || formData.alasanKeluar) ? formData.alasanKeluar || undefined : undefined),
+      sekolahTujuanMutasi: (formData.status === 'Mutasi Keluar' && formData.status !== 'Meninggal' && formData.alasanKeluar !== 'Meninggal Dunia') ? formData.sekolahTujuanMutasi.trim() || undefined : undefined,
+      tglKeluar: (formData.status === 'Meninggal' || formData.status === 'Mutasi Keluar' || formData.status === 'Pensiun' || formData.status === 'Nonaktif') ? (formData.tglKeluar || formData.tanggalWafat || formData.tanggalPensiun || undefined) : undefined,
+      tanggalWafat: (formData.status === 'Meninggal' || formData.alasanKeluar === 'Meninggal Dunia' || formData.alasanKeluar?.toLowerCase().includes('meninggal') || formData.alasanKeluar?.toLowerCase().includes('wafat')) ? (formData.tanggalWafat || formData.tglKeluar || undefined) : undefined,
+      tempatWafat: formData.tempatWafat?.trim() || undefined,
+      noSkMutasi: (formData.status === 'Meninggal' || formData.status === 'Mutasi Keluar' || formData.status === 'Pensiun') ? (formData.noSkMutasi.trim() || formData.noSkPensiun.trim() || undefined) : undefined,
+      tglSkMutasi: (formData.status === 'Meninggal' || formData.status === 'Mutasi Keluar' || formData.status === 'Pensiun') ? (formData.tglSkMutasi || undefined) : undefined,
+      pejabatSkMutasi: (formData.status === 'Meninggal' || formData.status === 'Mutasi Keluar' || formData.status === 'Pensiun') ? (formData.pejabatSkMutasi.trim() || formData.pejabatSkPensiun.trim() || undefined) : undefined,
       keteranganKeluar: formData.keteranganKeluar.trim() || undefined,
       // Pensiun & Cuti
       tanggalPensiun: formData.status === 'Pensiun' ? formData.tanggalPensiun || undefined : undefined,
@@ -625,7 +636,7 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
       tglMulaiCuti: formData.status === 'Cuti' ? formData.tglMulaiCuti || undefined : undefined,
       tglSelesaiCuti: formData.status === 'Cuti' ? formData.tglSelesaiCuti || undefined : undefined,
       noIzinCuti: formData.status === 'Cuti' ? formData.noIzinCuti.trim() || undefined : undefined,
-      keteranganKeaktifan: formData.keteranganKeaktifan.trim() || undefined,
+      keteranganKeaktifan: (formData.status === 'Meninggal' || formData.alasanKeluar === 'Meninggal Dunia') ? (formData.keteranganKeaktifan.trim() || 'Wafat (Meninggal Dunia)') : (formData.keteranganKeaktifan.trim() || undefined),
       avatarColor: formData.avatarColor,
     };
 
@@ -656,36 +667,48 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
     const cat = inferCategory(t);
     const matchesCategory = filterCategory === 'all' || cat === filterCategory;
     const currentStatus = t.status || 'Aktif';
-    const matchesStatus = filterStatus === 'all' || currentStatus === filterStatus;
+    const isWafat = isTeacherMeninggal(t);
+    const matchesStatus = filterStatus === 'all'
+      ? true
+      : filterStatus === 'Meninggal'
+      ? isWafat
+      : filterStatus === 'Mutasi Keluar'
+      ? (t.status === 'Mutasi Keluar' || isWafat)
+      : (filterStatus === 'Aktif' ? (currentStatus === 'Aktif' && !isWafat) : currentStatus === filterStatus);
 
     // SubTab Filter
     let matchesSubTab = true;
     if (activeSubTab === 'guru') {
-      matchesSubTab = cat === 'kepala_sekolah' || cat === 'wali_kelas' || cat === 'guru_mapel';
+      matchesSubTab = !isWafat && (cat === 'kepala_sekolah' || cat === 'wali_kelas' || cat === 'guru_mapel');
     } else if (activeSubTab === 'tendik') {
-      matchesSubTab = cat === 'tenaga_kependidikan';
+      matchesSubTab = !isWafat && cat === 'tenaga_kependidikan';
     } else if (activeSubTab === 'mutasi_masuk') {
       matchesSubTab = Boolean(t.isMutasiMasuk || t.sekolahAsalMutasi);
     } else if (activeSubTab === 'mutasi_keluar') {
-      matchesSubTab = t.status === 'Mutasi Keluar' || Boolean(t.alasanKeluar && (t.alasanKeluar.toLowerCase().includes('pindah') || t.alasanKeluar.toLowerCase().includes('mutasi')));
+      // Guru yang terdeteksi meninggal secara otomatis masuk daftar riwayat mutasi keluar
+      matchesSubTab = t.status === 'Mutasi Keluar' || isWafat || Boolean(t.alasanKeluar && (t.alasanKeluar.toLowerCase().includes('pindah') || t.alasanKeluar.toLowerCase().includes('mutasi')));
     } else if (activeSubTab === 'pensiun') {
-      matchesSubTab = t.status === 'Pensiun' || Boolean(t.alasanKeluar && t.alasanKeluar.toLowerCase().includes('pensiun'));
+      matchesSubTab = !isWafat && (t.status === 'Pensiun' || Boolean(t.alasanKeluar && t.alasanKeluar.toLowerCase().includes('pensiun')));
+    } else if (activeSubTab === 'meninggal') {
+      matchesSubTab = isWafat;
     }
 
     return matchesSearch && matchesCategory && matchesStatus && matchesSubTab;
   });
 
   const totalTeachers = adminUsers.length;
-  const totalActive = adminUsers.filter(u => (u.status || 'Aktif') === 'Aktif').length;
-  const totalPensiun = adminUsers.filter(u => u.status === 'Pensiun' || Boolean(u.alasanKeluar && u.alasanKeluar.toLowerCase().includes('pensiun'))).length;
-  const totalCuti = adminUsers.filter(u => u.status === 'Cuti').length;
-  const totalMutasiKeluar = adminUsers.filter(u => u.status === 'Mutasi Keluar' || Boolean(u.alasanKeluar && (u.alasanKeluar.toLowerCase().includes('pindah') || u.alasanKeluar.toLowerCase().includes('mutasi')))).length;
+  const totalMeninggal = adminUsers.filter(isTeacherMeninggal).length;
+  const totalActive = adminUsers.filter(u => (u.status || 'Aktif') === 'Aktif' && !isTeacherMeninggal(u)).length;
+  const totalPensiun = adminUsers.filter(u => !isTeacherMeninggal(u) && (u.status === 'Pensiun' || Boolean(u.alasanKeluar && u.alasanKeluar.toLowerCase().includes('pensiun')))).length;
+  const totalCuti = adminUsers.filter(u => u.status === 'Cuti' && !isTeacherMeninggal(u)).length;
+  // Riwayat Mutasi Keluar otomatis mencakup guru mutasi keluar DAN guru yang terdeteksi meninggal
+  const totalMutasiKeluar = adminUsers.filter(u => u.status === 'Mutasi Keluar' || isTeacherMeninggal(u) || Boolean(u.alasanKeluar && (u.alasanKeluar.toLowerCase().includes('pindah') || u.alasanKeluar.toLowerCase().includes('mutasi')))).length;
   const totalMutasiMasuk = adminUsers.filter(u => Boolean(u.isMutasiMasuk || u.sekolahAsalMutasi)).length;
-  const totalWaliKelas = adminUsers.filter(u => inferCategory(u) === 'wali_kelas').length;
-  const totalGuruMapel = adminUsers.filter(u => inferCategory(u) === 'guru_mapel').length;
-  const totalTendik = adminUsers.filter(u => inferCategory(u) === 'tenaga_kependidikan').length;
-  const totalGuru = adminUsers.filter(u => inferCategory(u) !== 'tenaga_kependidikan').length;
-  const totalKepsek = adminUsers.filter(u => inferCategory(u) === 'kepala_sekolah').length;
+  const totalWaliKelas = adminUsers.filter(u => !isTeacherMeninggal(u) && inferCategory(u) === 'wali_kelas').length;
+  const totalGuruMapel = adminUsers.filter(u => !isTeacherMeninggal(u) && inferCategory(u) === 'guru_mapel').length;
+  const totalTendik = adminUsers.filter(u => !isTeacherMeninggal(u) && inferCategory(u) === 'tenaga_kependidikan').length;
+  const totalGuru = adminUsers.filter(u => !isTeacherMeninggal(u) && inferCategory(u) !== 'tenaga_kependidikan').length;
+  const totalKepsek = adminUsers.filter(u => !isTeacherMeninggal(u) && inferCategory(u) === 'kepala_sekolah').length;
 
   return (
     <div className="space-y-6 pb-16 animate-in fade-in duration-200">
@@ -863,9 +886,24 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
           <Award className="w-3.5 h-3.5 text-purple-500" />
           <span>Purna Tugas / Pensiun ({totalPensiun})</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('meninggal')}
+          className={cn(
+            "px-3.5 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all shrink-0 cursor-pointer",
+            activeSubTab === 'meninggal'
+              ? "bg-slate-900 text-amber-300 dark:bg-slate-100 dark:text-slate-950 shadow-xs border border-slate-700"
+              : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800"
+          )}
+          title="Buku Arsip Penghormatan & Purna Tugas Akhir (Wafat / Meninggal Dunia)"
+        >
+          <span className="text-sm">🕊️</span>
+          <span>Wafat / Meninggal ({totalMeninggal})</span>
+        </button>
       </div>
 
-      {/* Contextual Banner for Mutasi Masuk / Mutasi Keluar */}
+      {/* Contextual Banner for Mutasi Masuk / Mutasi Keluar / Wafat */}
       {activeSubTab === 'mutasi_masuk' && (
         <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 text-xs flex items-start gap-3 shadow-xs">
           <LogIn className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
@@ -882,10 +920,51 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
         <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200 text-xs flex items-start gap-3 shadow-xs">
           <LogOut className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
           <div>
-            <div className="font-extrabold text-sm text-rose-950 dark:text-rose-100">Buku Riwayat Mutasi Pegawai Keluar & Pemberhentian</div>
+            <div className="font-extrabold text-sm text-rose-950 dark:text-rose-100 flex flex-wrap items-center gap-2">
+              <span>Buku Riwayat Mutasi Pegawai Keluar & Pemberhentian</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-200/90 dark:bg-rose-900 text-rose-900 dark:text-rose-200 font-extrabold">
+                Otomatis mencakup Guru/GTK Wafat ({totalMeninggal})
+              </span>
+            </div>
             <p className="text-[11px] text-rose-800/90 dark:text-rose-300/90 mt-0.5 leading-relaxed">
-              Mencatat arsip pendidik & tendik yang telah pindah tugas, mengundurkan diri, atau berhenti dengan keterangan jelas <strong>"Keluar Karena Apa"</strong>, instansi/sekolah tujuan, nomor SK mutasi, dan tanggal penetapan.
+              Mencatat arsip pendidik & tendik yang telah pindah tugas, mengundurkan diri, maupun berpulang (wafat / meninggal dunia) dengan keterangan jelas alasan keluar, instansi tujuan atau purna tugas akhir, nomor SK resmi, dan tanggal penetapan.
             </p>
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === 'meninggal' && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 border border-slate-800 text-white text-xs shadow-md space-y-2.5 animate-in fade-in">
+          <div className="flex items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl shrink-0">
+                🕊️
+              </div>
+              <div>
+                <div className="font-black text-sm text-amber-300 tracking-wide uppercase flex items-center gap-2">
+                  <span>Buku Arsip Penghormatan & Purna Tugas Akhir (Wafat / Meninggal Dunia)</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-400/30 font-bold">
+                    Memorial Resmi
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
+                  Mencatat data pendidik & tenaga kependidikan yang telah berpulang ke Rahmatullah selama atau setelah masa pengabdian di {schoolProfile.namaSekolah}. Tercatat abadi sebagai wujud takzim dan apresiasi atas seluruh dedikasi, bimbingan, serta amal jariyah yang telah ditorehkan.
+                </p>
+              </div>
+            </div>
+            <div className="hidden lg:block text-right shrink-0">
+              <div className="text-[10px] text-slate-400">Status Kepegawaian BAP</div>
+              <div className="text-xs font-mono font-bold text-amber-200">Mutasi Keluar (Wafat)</div>
+            </div>
+          </div>
+          <div className="pt-2 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-400">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+              <span>Data otomatis terintegrasi ke <strong>Riwayat Mutasi Keluar</strong> (Pemberhentian Wafat).</span>
+            </div>
+            <div className="text-amber-300/80 italic font-serif">
+              "Semoga segala ilmu & kebaikan yang diajarkan mengalir menjadi pahala jariyah yang tiada putus."
+            </div>
           </div>
         </div>
       )}
@@ -1008,6 +1087,7 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
             <option value="Pensiun">🟣 Pensiun / Purna Tugas ({totalPensiun})</option>
             <option value="Cuti">🟡 Cuti ({totalCuti})</option>
             <option value="Mutasi Keluar">🔵 Mutasi Keluar ({totalMutasiKeluar})</option>
+            <option value="Meninggal">🕊️ Wafat / Meninggal ({totalMeninggal})</option>
             <option value="Nonaktif">⚪ Nonaktif / Berhenti</option>
           </select>
         </div>
@@ -1061,7 +1141,9 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
 
                   <span className={cn(
                     "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border shrink-0",
-                    (teacher.status === 'Aktif' || !teacher.status)
+                    isTeacherMeninggal(teacher)
+                      ? "bg-slate-900 text-amber-300 border-slate-700 dark:bg-slate-800 dark:text-amber-200 dark:border-slate-600 shadow-2xs"
+                      : (teacher.status === 'Aktif' || !teacher.status)
                       ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800"
                       : teacher.status === 'Pensiun'
                       ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800"
@@ -1071,7 +1153,15 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
                       ? "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800"
                       : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
                   )}>
-                    {teacher.status === 'Pensiun' ? '🟣 Pensiun' : teacher.status === 'Cuti' ? '🟡 Cuti' : teacher.status === 'Mutasi Keluar' ? '🔵 Mutasi Keluar' : teacher.status || 'Aktif'}
+                    {isTeacherMeninggal(teacher)
+                      ? '🕊️ Wafat / Meninggal'
+                      : teacher.status === 'Pensiun'
+                      ? '🟣 Pensiun'
+                      : teacher.status === 'Cuti'
+                      ? '🟡 Cuti'
+                      : teacher.status === 'Mutasi Keluar'
+                      ? '🔵 Mutasi Keluar'
+                      : teacher.status || 'Aktif'}
                   </span>
                 </div>
 
@@ -1120,7 +1210,7 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
                 )}
 
                 {/* Keaktifan Info Highlight for Pensiun, Cuti, Mutasi */}
-                {teacher.status === 'Pensiun' && (
+                {teacher.status === 'Pensiun' && !isTeacherMeninggal(teacher) && (
                   <div className="mt-2.5 p-2 rounded-xl bg-purple-50/80 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-900/60 text-[11px] text-purple-900 dark:text-purple-300 flex items-center justify-between">
                     <span className="font-bold flex items-center gap-1">
                       <Award className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
@@ -1132,7 +1222,7 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
                   </div>
                 )}
 
-                {teacher.status === 'Cuti' && (
+                {teacher.status === 'Cuti' && !isTeacherMeninggal(teacher) && (
                   <div className="mt-2.5 p-2 rounded-xl bg-amber-50/80 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 text-[11px] text-amber-900 dark:text-amber-300 flex items-center justify-between">
                     <span className="font-bold flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
@@ -1144,7 +1234,34 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
                   </div>
                 )}
 
-                {(teacher.status === 'Mutasi Keluar' || (teacher.alasanKeluar && teacher.status !== 'Aktif')) && (
+                {/* Memorial Tribute Info for Deceased Teacher */}
+                {isTeacherMeninggal(teacher) && (
+                  <div className="mt-2.5 p-2.5 rounded-xl bg-slate-900 text-white dark:bg-slate-800 border border-slate-750 dark:border-slate-700 text-[11px] space-y-1.5 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-amber-300 flex items-center gap-1.5">
+                        <span>🕊️</span>
+                        <span>Purna Tugas Akhir (Wafat)</span>
+                      </span>
+                      <span className="text-[10px] text-slate-300 font-semibold">
+                        {teacher.tanggalWafat || teacher.tglKeluar 
+                          ? `Wafat: ${formatIndonesianDate(teacher.tanggalWafat || teacher.tglKeluar || '')}` 
+                          : 'Telah Berpulang'}
+                      </span>
+                    </div>
+                    {teacher.noSkMutasi && (
+                      <div className="text-[10px] text-slate-300 font-mono">
+                        SK Pemberhentian: {teacher.noSkMutasi}
+                      </div>
+                    )}
+                    {teacher.keteranganKeluar && (
+                      <div className="text-[10px] text-amber-100/90 italic line-clamp-2">
+                        "{teacher.keteranganKeluar}"
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!isTeacherMeninggal(teacher) && (teacher.status === 'Mutasi Keluar' || (teacher.alasanKeluar && teacher.status !== 'Aktif')) && (
                   <div className="mt-2.5 p-2.5 rounded-xl bg-rose-50/90 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 text-[11px] text-rose-900 dark:text-rose-200 space-y-1">
                     <div className="flex items-center justify-between">
                       <span className="font-bold flex items-center gap-1">
@@ -2231,6 +2348,117 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
                   </div>
                 )}
 
+                {/* Form Khusus Status GTK Wafat / Meninggal Dunia */}
+                {formData.status === 'Meninggal' && (
+                  <div className="p-4 rounded-xl bg-slate-900 text-white dark:bg-slate-900 border border-slate-750 dark:border-slate-700 space-y-3 animate-in fade-in">
+                    <div className="flex items-center gap-2 pb-1 border-b border-slate-800">
+                      <span className="text-base">🕊️</span>
+                      <div>
+                        <h5 className="font-extrabold text-xs text-amber-300 uppercase tracking-wide">
+                          Data Purna Tugas Akhir & GTK Berpulang (Wafat / Meninggal Dunia)
+                        </h5>
+                        <p className="text-[10px] text-slate-300">
+                          Pencatatan resmi kepegawaian untuk pendidik/tendik yang berpulang ke Rahmatullah. Otomatis masuk ke Buku Riwayat Mutasi Keluar & Tab Arsip Penghormatan.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-bold text-slate-200 mb-1 text-[11px]">
+                          Alasan Pemberhentian
+                        </label>
+                        <input
+                          type="text"
+                          readOnly
+                          value="Meninggal Dunia (Purna Tugas Akhir)"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-amber-200 font-bold text-xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-200 mb-1 text-[11px]">
+                          Tanggal Wafat / Berpulang <span className="text-amber-400">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          value={formData.tanggalWafat || formData.tglKeluar}
+                          onChange={(e) => setFormData({ ...formData, tanggalWafat: e.target.value, tglKeluar: e.target.value, alasanKeluar: 'Meninggal Dunia' })}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white font-semibold text-xs focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block font-bold text-slate-200 mb-1 text-[11px]">
+                          Nomor SK Pemberhentian Wafat
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.noSkMutasi}
+                          onChange={(e) => setFormData({ ...formData, noSkMutasi: e.target.value, alasanKeluar: 'Meninggal Dunia' })}
+                          placeholder="800/DISDIK/PEMBERHENTIAN/..."
+                          className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white font-mono text-xs focus:outline-hidden"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-200 mb-1 text-[11px]">
+                          Tanggal SK Pemberhentian
+                        </label>
+                        <input
+                          type="date"
+                          value={formData.tglSkMutasi}
+                          onChange={(e) => setFormData({ ...formData, tglSkMutasi: e.target.value })}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white font-semibold text-xs focus:outline-hidden"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-200 mb-1 text-[11px]">
+                          Pejabat Penetap SK
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.pejabatSkMutasi}
+                          onChange={(e) => setFormData({ ...formData, pejabatSkMutasi: e.target.value })}
+                          placeholder="Bupati / Kepala BKD"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-bold text-slate-200 mb-1 text-[11px]">
+                          Tempat Wafat / Berpulang (Opsional)
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.tempatWafat}
+                          onChange={(e) => setFormData({ ...formData, tempatWafat: e.target.value })}
+                          placeholder="RSUD Teluk Kuantan / Rumah Duka"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-hidden"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-200 mb-1 text-[11px]">
+                          Catatan Penghormatan / Riwayat Pengabdian
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.keteranganKeluar}
+                          onChange={(e) => setFormData({ ...formData, keteranganKeluar: e.target.value, keteranganKeaktifan: 'Wafat (Meninggal Dunia)' })}
+                          placeholder="Segala ilmu & dedikasinya dicatat dalam arsip penghormatan..."
+                          className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Form Khusus Status Mutasi Keluar & Pemberhentian */}
                 {(formData.status === 'Mutasi Keluar' || formData.status === 'Nonaktif') && (
                   <div className="p-4 rounded-xl bg-rose-50/80 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 space-y-3 animate-in fade-in">
@@ -2253,7 +2481,20 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
                         </label>
                         <select
                           value={formData.alasanKeluar}
-                          onChange={(e) => setFormData({ ...formData, alasanKeluar: e.target.value })}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'Meninggal Dunia') {
+                              setFormData({
+                                ...formData,
+                                status: 'Meninggal',
+                                alasanKeluar: 'Meninggal Dunia',
+                                sekolahTujuanMutasi: '',
+                                keteranganKeaktifan: 'Wafat (Meninggal Dunia)'
+                              });
+                            } else {
+                              setFormData({ ...formData, alasanKeluar: val });
+                            }
+                          }}
                           className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 font-bold focus:outline-hidden"
                         >
                           <option value="">-- Pilih Alasan Keluar --</option>
@@ -2261,36 +2502,42 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
                           <option value="Pensiun BUP (Batas Usia Pensiun)">Pensiun BUP (Batas Usia Pensiun)</option>
                           <option value="Pensiun Dini / Permintaan Sendiri">Pensiun Dini / Permintaan Sendiri</option>
                           <option value="Mengundurkan Diri (Resign)">Mengundurkan Diri (Resign)</option>
-                          <option value="Meninggal Dunia">Meninggal Dunia</option>
+                          <option value="Meninggal Dunia">Meninggal Dunia (Purna Tugas Akhir)</option>
                           <option value="Habis Masa Kontrak Kerja">Habis Masa Kontrak Kerja</option>
                           <option value="Alih Tugas / Penugasan Khusus">Alih Tugas / Penugasan Khusus</option>
                           <option value="Lain-lain">Lain-lain</option>
                         </select>
                       </div>
 
-                      <div>
-                        <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 text-[11px]">
-                          Sekolah / Instansi Tujuan (Jika Mutasi)
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.sekolahTujuanMutasi}
-                          onChange={(e) => setFormData({ ...formData, sekolahTujuanMutasi: e.target.value })}
-                          placeholder="Contoh: SD Negeri 001 Teluk Kuantan"
-                          className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-hidden font-semibold"
-                        />
-                      </div>
+                      {formData.alasanKeluar !== 'Meninggal Dunia' ? (
+                        <div>
+                          <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 text-[11px]">
+                            Sekolah / Instansi Tujuan (Jika Mutasi)
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.sekolahTujuanMutasi}
+                            onChange={(e) => setFormData({ ...formData, sekolahTujuanMutasi: e.target.value })}
+                            placeholder="Contoh: SD Negeri 001 Teluk Kuantan"
+                            className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-hidden font-semibold"
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex items-center p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 font-medium">
+                          🕊️ Dicatat sebagai Pemberhentian Khusus (Wafat).
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
                         <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 text-[11px]">
-                          TMT / Tanggal Efektif Keluar
+                          {formData.alasanKeluar === 'Meninggal Dunia' ? 'Tanggal Wafat / Berpulang' : 'TMT / Tanggal Efektif Keluar'}
                         </label>
                         <input
                           type="date"
                           value={formData.tglKeluar}
-                          onChange={(e) => setFormData({ ...formData, tglKeluar: e.target.value })}
+                          onChange={(e) => setFormData({ ...formData, tglKeluar: e.target.value, tanggalWafat: e.target.value })}
                           className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 font-semibold focus:outline-hidden"
                         />
                       </div>
@@ -2310,7 +2557,7 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
 
                       <div>
                         <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 text-[11px]">
-                          Tanggal SK Mutasi
+                          Tanggal SK Mutasi / Keluar
                         </label>
                         <input
                           type="date"
@@ -2484,11 +2731,13 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
                   <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                     <span className={cn(
                       "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border",
-                      selectedTeacherForDetail.status === 'Aktif'
+                      isTeacherMeninggal(selectedTeacherForDetail)
+                        ? "bg-slate-900 text-amber-300 border-slate-700 dark:bg-slate-800 dark:text-amber-200 dark:border-slate-600 shadow-2xs"
+                        : selectedTeacherForDetail.status === 'Aktif'
                         ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800"
                         : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
                     )}>
-                      {selectedTeacherForDetail.status || 'Aktif'}
+                      {isTeacherMeninggal(selectedTeacherForDetail) ? '🕊️ Alm./Wafat' : (selectedTeacherForDetail.status || 'Aktif')}
                     </span>
                     {selectedTeacherForDetail.statusKepegawaian && (
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
@@ -2738,8 +2987,65 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
                     </div>
                   )}
 
-                  {/* Mutasi Keluar */}
-                  {(selectedTeacherForDetail.status === 'Mutasi Keluar' || selectedTeacherForDetail.alasanKeluar) && (
+                  {/* Wafat / Meninggal Dunia */}
+                  {isTeacherMeninggal(selectedTeacherForDetail) && (
+                    <div className="p-3.5 rounded-xl bg-slate-900 text-white dark:bg-slate-800 border border-slate-750 dark:border-slate-700 space-y-2 shadow-xs">
+                      <div className="flex items-center gap-1.5 text-amber-300 font-extrabold text-[11px]">
+                        <span className="text-base">🕊️</span>
+                        <span>Arsip Purna Tugas Akhir & Penghormatan (Wafat)</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-slate-300">
+                        <div className="flex justify-between sm:col-span-2 bg-slate-800 dark:bg-slate-750 p-2 rounded-lg border border-slate-700">
+                          <span className="font-bold text-amber-200">Status Kepegawaian BAP:</span>
+                          <span className="font-extrabold text-white">Purna Tugas Akhir (Meninggal Dunia)</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Tanggal Wafat:</span>
+                          <span className="font-bold text-white">
+                            {selectedTeacherForDetail.tanggalWafat || selectedTeacherForDetail.tglKeluar 
+                              ? formatIndonesianDate(selectedTeacherForDetail.tanggalWafat || selectedTeacherForDetail.tglKeluar || '') 
+                              : '-'}
+                          </span>
+                        </div>
+                        {selectedTeacherForDetail.tempatWafat && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Tempat Berpulang:</span>
+                            <span className="font-semibold text-white">{selectedTeacherForDetail.tempatWafat}</span>
+                          </div>
+                        )}
+                        {selectedTeacherForDetail.noSkMutasi && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Nomor SK Pemberhentian:</span>
+                            <span className="font-mono text-white">{selectedTeacherForDetail.noSkMutasi}</span>
+                          </div>
+                        )}
+                        {selectedTeacherForDetail.tglSkMutasi && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Tanggal SK Penetapan:</span>
+                            <span className="font-semibold text-white">{formatIndonesianDate(selectedTeacherForDetail.tglSkMutasi)}</span>
+                          </div>
+                        )}
+                        {selectedTeacherForDetail.pejabatSkMutasi && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Pejabat Penetap SK:</span>
+                            <span className="text-white">{selectedTeacherForDetail.pejabatSkMutasi}</span>
+                          </div>
+                        )}
+                        {selectedTeacherForDetail.keteranganKeluar && (
+                          <div className="sm:col-span-2 text-[11px] text-amber-200/90 italic pt-1 border-t border-slate-800">
+                            Catatan Penghormatan: "{selectedTeacherForDetail.keteranganKeluar}"
+                          </div>
+                        )}
+                        <div className="sm:col-span-2 text-[10px] text-emerald-400 pt-1 flex items-center gap-1.5">
+                          <span>✓</span>
+                          <span>Tercatat otomatis dalam Riwayat Mutasi Keluar & Buku Penghormatan Sekolah.</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mutasi Keluar Biasa */}
+                  {!isTeacherMeninggal(selectedTeacherForDetail) && (selectedTeacherForDetail.status === 'Mutasi Keluar' || selectedTeacherForDetail.alasanKeluar) && (
                     <div className="p-3 rounded-xl bg-white/80 dark:bg-slate-800/80 border border-rose-200 dark:border-rose-800/70 space-y-1.5">
                       <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-300 font-extrabold text-[11px]">
                         <LogOut className="w-3.5 h-3.5" />
@@ -2854,17 +3160,29 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
             </tr>
           </thead>
           <tbody>
-            {filteredTeachers.map((t, idx) => (
-              <tr key={t.id}>
-                <td className="border border-slate-950 px-2 py-1 text-center font-mono">{idx + 1}</td>
-                <td className="border border-slate-950 px-2 py-1 font-bold uppercase">{t.nama}</td>
-                <td className="border border-slate-950 px-2 py-1 text-center font-mono">{t.nip || '-'}</td>
-                <td className="border border-slate-950 px-2 py-1 text-center font-bold">{t.jenisKelamin || '-'}</td>
-                <td className="border border-slate-950 px-2 py-1 font-semibold">{t.jabatan || 'Guru'}</td>
-                <td className="border border-slate-950 px-2 py-1">{t.mataPelajaran || t.waliKelas || '-'}</td>
-                <td className="border border-slate-950 px-2 py-1 text-center">{t.statusKepegawaian || 'PNS'}</td>
-              </tr>
-            ))}
+            {filteredTeachers.map((t, idx) => {
+              const isWafat = isTeacherMeninggal(t);
+              return (
+                <tr key={t.id}>
+                  <td className="border border-slate-950 px-2 py-1 text-center font-mono">{idx + 1}</td>
+                  <td className="border border-slate-950 px-2 py-1 font-bold uppercase">
+                    {t.nama}
+                    {isWafat && <span className="ml-1.5 text-[9px] font-normal italic text-slate-700">(Alm./Wafat)</span>}
+                  </td>
+                  <td className="border border-slate-950 px-2 py-1 text-center font-mono">{t.nip || '-'}</td>
+                  <td className="border border-slate-950 px-2 py-1 text-center font-bold">{t.jenisKelamin || '-'}</td>
+                  <td className="border border-slate-950 px-2 py-1 font-semibold">{t.jabatan || 'Guru'}</td>
+                  <td className="border border-slate-950 px-2 py-1">
+                    {isWafat 
+                      ? (t.tanggalWafat || t.tglKeluar ? `Purna Tugas Akhir (${formatIndonesianDate(t.tanggalWafat || t.tglKeluar || '')})` : 'Purna Tugas Akhir (Wafat)') 
+                      : (t.mataPelajaran || t.waliKelas || '-')}
+                  </td>
+                  <td className="border border-slate-950 px-2 py-1 text-center font-medium">
+                    {isWafat ? 'Wafat (Keluar)' : (t.statusKepegawaian || 'PNS')}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 

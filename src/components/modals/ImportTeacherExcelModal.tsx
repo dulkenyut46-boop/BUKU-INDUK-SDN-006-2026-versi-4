@@ -384,17 +384,28 @@ export const ImportTeacherExcelModal: React.FC<ImportTeacherExcelModalProps> = (
                                 ? "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300"
                                 : res.data.status === 'Mutasi Keluar'
                                 ? "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300"
+                                : res.data.status === 'Meninggal'
+                                ? "bg-slate-900 text-amber-300 dark:bg-slate-800 dark:text-amber-200"
                                 : res.data.status === 'Pensiun'
                                 ? "bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-200"
                                 : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
                             )}>
-                              {res.data.status}
+                              {res.data.status === 'Meninggal' ? '🕊️ Wafat' : res.data.status}
                             </span>
                           </td>
                           <td className="p-2.5 text-[11px]">
                             {res.data.status === 'Mutasi Masuk' ? (
                               <div className="text-cyan-700 dark:text-cyan-400">
                                 <strong>Masuk dari:</strong> {res.data.sekolahAsalMutasi || '-'}
+                              </div>
+                            ) : res.data.status === 'Meninggal' ? (
+                              <div className="text-amber-700 dark:text-amber-400 font-semibold">
+                                <strong>Purna Tugas:</strong> {res.data.alasanKeluar || 'Meninggal Dunia'}
+                                {res.data.tglKeluar && (
+                                  <div className="text-[10px] text-slate-500">
+                                    Wafat: {res.data.tglKeluar}
+                                  </div>
+                                )}
                               </div>
                             ) : res.data.status === 'Mutasi Keluar' || res.data.status === 'Pensiun' ? (
                               <div>
